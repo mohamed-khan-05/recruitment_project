@@ -1,0 +1,19 @@
+<!-- res/menu/employer_bottom_nav_menu.xml -->
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+        android:id="@+id/navigation_dashboard"
+        android:icon="@drawable/ic_launcher_background"
+        android:title="Dashboard" />
+    <item
+        android:id="@+id/navigation_search"
+        android:icon="@drawable/ic_launcher_background"
+        android:title="Search" />
+    <item
+        android:id="@+id/navigation_chat"
+        android:icon="@drawable/baseline_chat_24"
+        android:title="Chat" />
+    <item
+        android:id="@+id/navigation_profile"
+        android:icon="@drawable/baseline_person_24"
+        android:title="Profile" />
+</menu>

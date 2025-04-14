@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8"?>
+<navigation xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/nav_employer"
+    xmlns:tools="http://schemas.android.com/tools"
+    app:startDestination="@+id/navigation_dashboard">
+
+    <fragment
+        android:id="@+id/navigation_dashboard"
+        android:name="com.example.recruitment.ui.dashboard.DashboardFragment"
+        android:label="Dashboard"
+        tools:layout="@layout/fragment_dashboard">
+
+        <action
+            android:id="@+id/action_dashboard_to_applicationViewsFragment"
+            app:destination="@id/navigation_applicationViews" />
+
+        <action
+            android:id="@+id/action_navigation_dashboard_to_myJobsFragment"
+            app:destination="@id/myJobsFragment" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/navigation_search"
+        android:name="com.example.recruitment.ui.search.SearchFragment"
+        android:label="Search"
+        tools:layout="@layout/fragment_dashboard" />
+
+    <fragment
+        android:id="@+id/navigation_chat"
+        android:name="com.example.recruitment.ui.chat.ChatFragment"
+        android:label="Chats"
+        tools:layout="@layout/fragment_chat">
+        <action
+            android:id="@+id/action_chat_to_chat_page"
+            app:destination="@id/navigation_chat_page" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/navigation_chat_page"
+        android:name="com.example.recruitment.ui.chat.ChatPageFragment"
+        android:label="Chats"
+        tools:layout="@layout/fragment_chat_page" />
+    
+    <fragment
+        android:id="@+id/navigation_profile"
+        android:name="com.example.recruitment.ui.profile.ProfileFragment"
+        android:label="Profile"
+        tools:layout="@layout/fragment_profile" />
+
+    <fragment
+        android:id="@+id/navigation_applicationViews"
+        android:name="com.example.recruitment.ui.profile.ApplicationViewsFragment"
+        android:label="Application Views"
+        tools:layout="@layout/fragment_application_views" />
+
+    <fragment
+        android:id="@+id/myJobsFragment"
+        android:name="com.example.recruitment.ui.jobs.MyJobsFragment"
+        android:label="My Jobs"
+        tools:layout="@layout/fragment_my_jobs" />
+</navigation>
