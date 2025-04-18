@@ -22,9 +22,9 @@
 
     <fragment
         android:id="@+id/navigation_search"
-        android:name="com.example.recruitment.ui.search.SearchFragment"
-        android:label="Search"
-        tools:layout="@layout/fragment_dashboard" />
+        android:name="com.example.recruitment.ui.search.EmployerSearchFragment"
+        android:label="Search Students"
+        tools:layout="@layout/fragment_search" />
 
     <fragment
         android:id="@+id/navigation_chat"
@@ -41,7 +41,7 @@
         android:name="com.example.recruitment.ui.chat.ChatPageFragment"
         android:label="Chats"
         tools:layout="@layout/fragment_chat_page" />
-    
+
     <fragment
         android:id="@+id/navigation_profile"
         android:name="com.example.recruitment.ui.profile.ProfileFragment"
