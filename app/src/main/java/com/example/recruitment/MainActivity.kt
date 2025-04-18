@@ -37,18 +37,15 @@ class MainActivity : AppCompatActivity() {
             setupActionBarWithNavController(navController, appBarConfiguration)
             navView.setupWithNavController(navController)
 
-            // Custom listener to navigate to the correct fragment when "Jobs" is clicked
             navView.setOnNavigationItemSelectedListener { item ->
                 when (item.itemId) {
                     R.id.navigation_jobs -> {
-                        // Reset the navigation stack and navigate to JobsFragment
                         navController.popBackStack(R.id.navigation_jobs, false)
                         navController.navigate(R.id.navigation_jobs)
                         true
                     }
 
                     else -> {
-                        // Navigate to the selected fragment
                         navController.navigate(item.itemId)
                         true
                     }

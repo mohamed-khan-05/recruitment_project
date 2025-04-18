@@ -30,7 +30,6 @@ class ChatFragment : Fragment() {
         binding = FragmentChatBinding.inflate(inflater, container, false)
         db = FirebaseFirestore.getInstance()
 
-        // Set up RecyclerView with an adapter to display conversations
         adapter = ConversationAdapter(conversationsList) { conversation ->
             val currentUser = FirebaseAuth.getInstance().currentUser?.email
             val other = conversation.participants.firstOrNull { it != currentUser }

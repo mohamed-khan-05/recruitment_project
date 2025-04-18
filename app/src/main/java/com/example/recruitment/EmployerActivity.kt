@@ -13,27 +13,51 @@ import com.google.android.material.bottomnavigation.BottomNavigationView
 
 class EmployerActivity : AppCompatActivity() {
     private lateinit var binding: ActivityEmployerBinding
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val currentUser = FirebaseAuth.getInstance().currentUser
         if (currentUser == null) {
             startActivity(Intent(this, LoginActivity::class.java))
             finish()
-        } else {
-            binding = ActivityEmployerBinding.inflate(layoutInflater)
-            setContentView(binding.root)
-            val navView: BottomNavigationView = binding.navViewEmployer
-            val navController = findNavController(R.id.nav_host_fragment_employer)
-            val appBarConfiguration = AppBarConfiguration(
-                setOf(
-                    R.id.navigation_dashboard,
-                    R.id.navigation_search,
-                    R.id.navigation_chat,
-                    R.id.navigation_profile
-                )
+            return
+        }
+
+        binding = ActivityEmployerBinding.inflate(layoutInflater)
+        setContentView(binding.root)
+
+        val navView: BottomNavigationView = binding.navViewEmployer
+        val navController = findNavController(R.id.nav_host_fragment_employer)
+        val appBarConfiguration = AppBarConfiguration(
+            setOf(
+                R.id.navigation_dashboard,
+                R.id.navigation_search,
+                R.id.navigation_chat,
+                R.id.navigation_profile
             )
-            setupActionBarWithNavController(navController, appBarConfiguration)
-            navView.setupWithNavController(navController)
+        )
+        setupActionBarWithNavController(navController, appBarConfiguration)
+        navView.setupWithNavController(navController)
+
+        navView.setOnNavigationItemSelectedListener { item ->
+            when (item.itemId) {
+                R.id.navigation_dashboard -> {
+                    navController.popBackStack(R.id.navigation_dashboard, false)
+                    navController.navigate(R.id.navigation_dashboard)
+                    true
+                }
+
+                R.id.navigation_search -> {
+                    navController.popBackStack(R.id.navigation_search, false)
+                    navController.navigate(R.id.navigation_search)
+                    true
+                }
+
+                else -> {
+                    navController.navigate(item.itemId)
+                    true
+                }
+            }
         }
     }
 
@@ -41,5 +65,4 @@ class EmployerActivity : AppCompatActivity() {
         val navController = findNavController(R.id.nav_host_fragment_employer)
         return navController.navigateUp() || super.onSupportNavigateUp()
     }
-
 }

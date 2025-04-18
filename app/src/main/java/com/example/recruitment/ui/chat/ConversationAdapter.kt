@@ -1,6 +1,7 @@
 package com.example.recruitment.ui.chat
 
 import android.util.Log
+import android.view.View
 import android.view.LayoutInflater
 import android.view.ViewGroup
 import androidx.recyclerview.widget.RecyclerView
@@ -33,20 +34,23 @@ class ConversationAdapter(
             val currentUser = FirebaseAuth.getInstance().currentUser?.email
             val other = conversation.participants.firstOrNull { it != currentUser } ?: "Unknown"
 
-            Log.d("ConversationAdapter", "Binding conversation with: $other")
-            Log.d(
-                "ConversationAdapter",
-                "Last message: ${conversation.lastMessage}, time: ${conversation.lastTimestamp}"
-            )
-
             binding.tvUser.text = other
             binding.tvLastMessage.text = conversation.lastMessage ?: "No message"
             binding.tvTime.text = SimpleDateFormat("hh:mm a", Locale.getDefault())
                 .format(Date(conversation.lastTimestamp ?: 0L))
 
+            // Handle unread count display
+            val unreadCount = conversation.unreadMessagesCount?.get(currentUser) ?: 0
+            if (unreadCount > 0) {
+                binding.tvUnreadCount.visibility = View.VISIBLE
+                binding.tvUnreadCount.text = unreadCount.toString()
+            } else {
+                binding.tvUnreadCount.visibility = View.GONE
+            }
             binding.root.setOnClickListener {
                 onConversationClick(conversation)
             }
+            Log.d("ConversationAdapter", "Unread count: ${conversation.unreadMessagesCount}")
         }
 
     }

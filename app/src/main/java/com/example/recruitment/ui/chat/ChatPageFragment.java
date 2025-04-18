@@ -1,7 +1,6 @@
 package com.example.recruitment.ui.chat;
 
 import android.os.Bundle;
-import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -10,62 +9,57 @@ import androidx.fragment.app.Fragment;
 import androidx.recyclerview.widget.LinearLayoutManager;
 
 import com.example.recruitment.databinding.FragmentChatPageBinding;
-import com.google.firebase.auth.FirebaseAuth;
-import com.google.firebase.firestore.DocumentSnapshot;
-import com.google.firebase.firestore.FirebaseFirestore;
-import com.google.firebase.firestore.Query;
-import com.google.firebase.firestore.ListenerRegistration;
 import com.example.recruitment.model.Message;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.firestore.*;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 
 public class ChatPageFragment extends Fragment {
-
     private FragmentChatPageBinding binding;
     private FirebaseFirestore db;
     private String chatId;
+    private String otherUserEmail;
     private ListenerRegistration messagesListener;
-    private List<Message> messagesList = new ArrayList<>();
+    private final List<Message> messagesList = new ArrayList<>();
     private MessageAdapter adapter;
 
-    private String employerEmail;
-    private String jobId;
-
-    private static final String TAG = "ChatPageFragment";
-
     @Override
-    public View onCreateView(LayoutInflater inflater, ViewGroup container,
-                             Bundle savedInstanceState) {
+    public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
         binding = FragmentChatPageBinding.inflate(inflater, container, false);
 
-        // Retrieve passed arguments
         chatId = getArguments().getString("chatId", "");
-        employerEmail = getArguments().getString("employerEmail", "");
-        jobId = getArguments().getString("jobId", "");
-
-        Log.d(TAG, "Chat ID: " + chatId);
-        Log.d(TAG, "Employer Email: " + employerEmail);
-        Log.d(TAG, "Job ID: " + jobId);
+        otherUserEmail = getArguments().getString("employerEmail", "");
 
         db = FirebaseFirestore.getInstance();
-
         adapter = new MessageAdapter(messagesList);
+
         binding.recyclerChatMessages.setLayoutManager(new LinearLayoutManager(getContext()));
         binding.recyclerChatMessages.setAdapter(adapter);
 
+        markChatAsRead();
         fetchMessages();
 
         binding.sendButton.setOnClickListener(v -> {
-            String messageText = binding.messageInput.getText().toString();
+            String messageText = binding.messageInput.getText().toString().trim();
             if (!messageText.isEmpty()) {
                 sendMessage(messageText);
-                binding.messageInput.setText(""); // Clear input after sending
+                binding.messageInput.setText("");
             }
         });
 
         return binding.getRoot();
     }
+
+    private void markChatAsRead() {
+        String currentUser = FirebaseAuth.getInstance().getCurrentUser().getEmail();
+        if (currentUser == null || chatId.isEmpty()) return;
+
+        db.collection("conversations")
+                .document(chatId)
+                .update(FieldPath.of("unreadMessagesCount", currentUser), 0);
+    }
+
 
     private void fetchMessages() {
         messagesListener = db.collection("conversations")
@@ -73,76 +67,52 @@ public class ChatPageFragment extends Fragment {
                 .collection("messages")
                 .orderBy("timestamp", Query.Direction.ASCENDING)
                 .addSnapshotListener((snapshot, e) -> {
-                    if (e != null) {
-                        Log.e(TAG, "Error fetching messages: ", e);
-                        return;
-                    }
+                    if (snapshot == null || e != null) return;
 
-                    if (snapshot != null && !snapshot.isEmpty()) {
-                        messagesList.clear();
-                        for (DocumentSnapshot document : snapshot.getDocuments()) {
-                            String senderEmail = document.getString("senderEmail");
-                            String messageText = document.getString("message");
-                            String status = document.getString("status");
-                            Object rawTimestamp = document.get("timestamp");
-                            long timestampVal = 0L;
-                            if (rawTimestamp instanceof Long) {
-                                timestampVal = (Long) rawTimestamp;
-                            } else if (rawTimestamp instanceof Double) {
-                                timestampVal = ((Double) rawTimestamp).longValue();
-                            } else if (rawTimestamp instanceof com.google.firebase.Timestamp) {
-                                timestampVal = ((com.google.firebase.Timestamp) rawTimestamp).toDate().getTime();
-                            } else {
-                                Log.w(TAG, "Unexpected timestamp type for doc ID: " + document.getId());
-                            }
+                    messagesList.clear();
+                    for (DocumentSnapshot doc : snapshot.getDocuments()) {
+                        String sender = doc.getString("senderEmail");
+                        String text = doc.getString("message");
+                        String status = doc.getString("status");
+                        Long timestamp = doc.getLong("timestamp");
 
-                            if (senderEmail != null && messageText != null && rawTimestamp != null && status != null) {
-                                Message message = new Message(
-                                        senderEmail,
-                                        messageText,
-                                        timestampVal,
-                                        status
-                                );
-                                messagesList.add(message);
-                            } else {
-                                Log.w(TAG, "Incomplete message data for doc ID: " + document.getId());
-                            }
+                        if (sender != null && text != null && status != null && timestamp != null) {
+                            messagesList.add(new Message(sender, text, timestamp, status));
                         }
-                        adapter.notifyDataSetChanged();
-                        binding.recyclerChatMessages.scrollToPosition(messagesList.size() - 1);
                     }
+                    adapter.notifyDataSetChanged();
+                    binding.recyclerChatMessages.scrollToPosition(messagesList.size() - 1);
                 });
     }
 
-
     private void sendMessage(String messageText) {
         String senderEmail = FirebaseAuth.getInstance().getCurrentUser().getEmail();
-        if (senderEmail == null) return;
+        if (senderEmail == null || chatId.isEmpty() || otherUserEmail.isEmpty()) return;
 
-        Message newMessage = new Message(senderEmail, messageText, System.currentTimeMillis(), "sent");
+        long now = System.currentTimeMillis();
+        Message newMessage = new Message(senderEmail, messageText, now, "sent");
 
-        db.collection("conversations") // ✅ updated collection
+        db.collection("conversations")
                 .document(chatId)
                 .collection("messages")
                 .add(newMessage)
-                .addOnSuccessListener(documentReference -> {
-                    Log.d(TAG, "Message sent successfully: " + messageText);
-                    // Optionally update last message timestamp
-                    db.collection("conversations")
-                            .document(chatId)
-                            .update("lastMessageTimestamp", newMessage.getTimestamp());
-                })
-                .addOnFailureListener(e -> {
-                    Log.e(TAG, "Error sending message: ", e);
-                });
+                .addOnSuccessListener(ref -> updateConversationMetadata(messageText, now));
+    }
+
+    private void updateConversationMetadata(String messageText, long timestamp) {
+        db.collection("conversations")
+                .document(chatId)
+                .update(
+                        FieldPath.of("lastMessage"), messageText,
+                        FieldPath.of("lastTimestamp"), timestamp,
+                        FieldPath.of("unreadMessagesCount", otherUserEmail), FieldValue.increment(1)
+                );
     }
 
     @Override
     public void onDestroyView() {
         super.onDestroyView();
-        if (messagesListener != null) {
-            messagesListener.remove(); // Remove listener on fragment destruction
-        }
-        binding = null; // Ensure binding is nullified to avoid memory leaks
+        if (messagesListener != null) messagesListener.remove();
+        binding = null;
     }
 }
