@@ -19,7 +19,6 @@ class ChatFragment : Fragment() {
     private var binding: FragmentChatBinding? = null
     private lateinit var db: FirebaseFirestore
     private var messagesListener: ListenerRegistration? = null
-
     private val conversationsList: MutableList<Conversation> = ArrayList()
     private lateinit var adapter: ConversationAdapter
 

@@ -24,7 +24,22 @@
         android:id="@+id/navigation_search"
         android:name="com.example.recruitment.ui.search.EmployerSearchFragment"
         android:label="Search Students"
-        tools:layout="@layout/fragment_search" />
+        tools:layout="@layout/fragment_search">
+        <action
+            android:id="@+id/action_employerSearch_to_chat"
+            app:destination="@id/navigation_chat_page">
+            <argument
+                android:name="studentEmail"
+                app:argType="string" />
+            <argument
+                android:name="studentId"
+                app:argType="string" />
+            <argument
+                android:name="chatId"
+                app:argType="string" />
+        </action>
+
+    </fragment>
 
     <fragment
         android:id="@+id/navigation_chat"

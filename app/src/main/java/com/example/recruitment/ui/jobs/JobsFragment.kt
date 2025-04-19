@@ -35,11 +35,13 @@ class JobsFragment : Fragment() {
     private var lastVisibleDocument: DocumentSnapshot? = null
 
     override fun onCreateView(
-        inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?
-    ): View {
+        inflater: LayoutInflater, container: ViewGroup?,
+        savedInstanceState: Bundle?
+    ): View? {
         _binding = FragmentJobsBinding.inflate(inflater, container, false)
         return binding.root
     }
+
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
@@ -60,7 +62,6 @@ class JobsFragment : Fragment() {
                     putString("employerEmail", job.employerEmail)
                     putString("jobId", job.id)
                 }
-                // Check if chat already exists, otherwise create a new one
                 createOrNavigateToChat(job, bundle)
             }
         )
@@ -99,25 +100,49 @@ class JobsFragment : Fragment() {
     }
 
     private fun createOrNavigateToChat(job: Job, bundle: Bundle) {
-        val chatId = job.id // You could use this job ID as the chat ID or create a new one
-        val chatDocRef = FirebaseFirestore.getInstance().collection("chats").document(chatId)
+        val currentUserEmail = FirebaseAuth.getInstance().currentUser?.email
+            ?: run {
+                Log.e("JobsFragment", "No logged‑in user email")
+                return
+            }
+        db.collection("conversations")
+            .whereArrayContains("participants", currentUserEmail)
+            .get()
+            .addOnSuccessListener { snapshot ->
+                val existing = snapshot.documents.firstOrNull { doc ->
+                    val participants = doc.get("participants") as? List<*>
+                    participants?.contains(job.employerEmail) == true
+                }
+                Log.d("JobsFragment", "Navigating to chat with ID: ${bundle.getString("chatId")}")
 
-        chatDocRef.get().addOnSuccessListener { documentSnapshot ->
-            if (documentSnapshot.exists()) {
-                // If the chat exists, navigate to the existing chat
-                findNavController().navigate(R.id.action_jobs_to_chat, bundle)
-            } else {
-                // If the chat does not exist, create a new chat document
-                val newChat = Chat(
-                    chatId,
-                    job.employerEmail,
-                    FirebaseAuth.getInstance().currentUser?.email ?: ""
-                )
-                chatDocRef.set(newChat).addOnSuccessListener {
+                if (existing != null) {
+                    bundle.putString("chatId", existing.id)
                     findNavController().navigate(R.id.action_jobs_to_chat, bundle)
+                } else {
+                    val convData = mapOf(
+                        "participants" to listOf(currentUserEmail, job.employerEmail),
+                        "lastTimestamp" to System.currentTimeMillis(),
+                        "lastMessage" to "",
+                        "unreadMessagesCount" to mapOf(
+                            currentUserEmail to 0,
+                            job.employerEmail to 0
+                        )
+                    )
+
+                    db.collection("conversations")
+                        .add(convData)
+                        .addOnSuccessListener { newDoc ->
+                            bundle.putString("chatId", newDoc.id)
+                            findNavController().navigate(R.id.action_jobs_to_chat, bundle)
+                        }
+                        .addOnFailureListener { e ->
+                            Log.e("JobsFragment", "Failed to create conversation: ${e.message}")
+                        }
                 }
             }
-        }
+            .addOnFailureListener { e ->
+                Log.e("JobsFragment", "Error fetching conversations: ${e.message}")
+            }
     }
 
 
@@ -140,7 +165,6 @@ class JobsFragment : Fragment() {
     private fun loadSuggestedJobs() {
         db.collection("jobs").whereEqualTo("status", "open").get()
             .addOnSuccessListener { snapshot ->
-                // Use safe binding only if the view is still active
                 _binding?.let { binding ->
                     val suggestedJobs = snapshot.documents.mapNotNull { doc ->
                         val title = doc.getString("title") ?: return@mapNotNull null
@@ -149,7 +173,6 @@ class JobsFragment : Fragment() {
                         val workArrangement = doc.getString("workArrangement") ?: ""
                         val combinedText =
                             "$title $description $experienceLevel $workArrangement".lowercase()
-                        // Verify if any user keyword matches
                         val matchesKeywords = userKeywords.any { keyword ->
                             combinedText.contains(keyword.lowercase())
                         }
@@ -195,7 +218,6 @@ class JobsFragment : Fragment() {
 
         db.collection("jobs").whereEqualTo("status", "open").get()
             .addOnSuccessListener { snapshot ->
-                // Use safe binding to ensure the view still exists
                 _binding?.let { binding ->
                     if (reset) {
                         allSearchedJobs = snapshot.documents.mapNotNull { doc ->
