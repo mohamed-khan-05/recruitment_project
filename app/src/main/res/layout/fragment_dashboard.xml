@@ -24,9 +24,17 @@
             android:id="@+id/button_view_my_jobs"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
+            android:layout_marginTop="8dp"
             android:text="View My Jobs"
             app:layout_constraintTop_toBottomOf="@id/button_create_job" />
+
+        <Button
+            android:id="@+id/button_view_my_applicants"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="View My Jobs"
+            app:layout_constraintTop_toBottomOf="@id/button_view_my_jobs" />
 
         <androidx.cardview.widget.CardView
             android:id="@+id/card_profile_views"
@@ -36,7 +44,7 @@
             app:cardElevation="4dp"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@id/button_view_my_jobs">
+            app:layout_constraintTop_toBottomOf="@id/button_view_my_applicants">
 
             <LinearLayout
                 android:layout_width="match_parent"

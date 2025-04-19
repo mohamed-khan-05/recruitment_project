@@ -49,6 +49,7 @@ class JobsFragment : Fragment() {
         adapter = StudentJobsAdapter(
             onJobClick = { job ->
                 val dialog = StudentJobDescriptionDialogFragment.newInstance(
+                    jobId = job.id,
                     title = job.title,
                     description = job.description,
                     experienceLevel = job.experienceLevel,
