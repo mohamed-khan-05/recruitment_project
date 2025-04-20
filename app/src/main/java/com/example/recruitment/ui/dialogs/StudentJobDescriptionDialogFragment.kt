@@ -11,7 +11,9 @@ import java.text.SimpleDateFormat
 import java.util.*
 import android.app.AlertDialog
 import android.widget.Toast
+import com.example.recruitment.model.ApplicationData
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 
 class StudentJobDescriptionDialogFragment : DialogFragment() {
@@ -51,7 +53,6 @@ class StudentJobDescriptionDialogFragment : DialogFragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-
         val title = arguments?.getString("title") ?: ""
         val description = arguments?.getString("description") ?: ""
         val experienceLevel = arguments?.getString("experienceLevel") ?: ""
@@ -67,77 +68,110 @@ class StudentJobDescriptionDialogFragment : DialogFragment() {
         val currentUserEmail = FirebaseAuth.getInstance().currentUser?.email
         val db = FirebaseFirestore.getInstance()
         val jobRef = db.collection("jobs").document(jobId)
+        val appsCollection = jobRef.collection("applications")
 
         if (currentUserEmail != null) {
-            jobRef.get().addOnSuccessListener { snapshot ->
-                val applicants = snapshot.get("applicants") as? List<String> ?: emptyList()
+            appsCollection
+                .whereEqualTo("email", currentUserEmail)
+                .get()
+                .addOnSuccessListener { query ->
+                    val existingApp = query.documents.firstOrNull()
+                    val isApplied = existingApp != null
+                    val status = existingApp?.getString("status") ?: "pending"
 
-                val isApplied = applicants.contains(currentUserEmail)
-                val buttonText = if (isApplied) "Withdraw Application" else "Apply"
-                val buttonColor =
-                    if (isApplied) android.R.color.holo_red_dark else R.color.purple_500
+                    // Get timestamps in Long (Unix time in millis)
+                    val appliedAt = existingApp?.getLong("appliedAt") ?: 0L
+                    val decisionAt = existingApp?.getLong("decisionAt") ?: 0L
 
-                binding.applyButton.apply {
-                    text = buttonText
-                    setBackgroundColor(requireContext().getColor(buttonColor))
-                    setOnClickListener {
-                        val actionMessage = if (isApplied) "Withdraw" else "Apply"
-                        val dialogTitle = "$actionMessage Application?"
-                        val dialogMessage =
-                            "Do you want to $actionMessage your application for this job?"
-                        AlertDialog.Builder(requireContext())
-                            .setTitle(dialogTitle)
-                            .setMessage(dialogMessage)
-                            .setPositiveButton("Yes") { _, _ ->
-                                db.runTransaction { transaction ->
-                                    val jobSnapshot = transaction.get(jobRef)
-                                    val currentApplicants =
-                                        jobSnapshot.get("applicants") as? List<String> ?: listOf()
-                                    val updatedApplicants = if (isApplied) {
-                                        currentApplicants.filter { it != currentUserEmail }
-                                    } else {
-                                        currentApplicants + currentUserEmail
-                                    }
-                                    transaction.update(jobRef, "applicants", updatedApplicants)
-                                }.addOnSuccessListener {
-                                    val toastMessage =
-                                        if (isApplied) "Application withdrawn." else "Application submitted!"
-                                    Toast.makeText(
-                                        requireContext(),
-                                        toastMessage,
-                                        Toast.LENGTH_SHORT
-                                    ).show()
+                    // Create ApplicationData
+                    val appData = ApplicationData(
+                        jobId = jobId,
+                        jobTitle = title,
+                        companyName = "",
+                        status = status,
+                        appliedAt = appliedAt,
+                        decisionAt = decisionAt
+                    )
 
-                                    // Reset to the opposite state after action
-                                    binding.applyButton.apply {
-                                        text = if (isApplied) "Apply" else "Withdraw Application"
-                                        setBackgroundColor(requireContext().getColor(if (isApplied) R.color.purple_500 else android.R.color.holo_red_dark))
-                                        setOnClickListener {
-                                            onViewCreated(
-                                                view,
-                                                savedInstanceState
-                                            )
-                                        } // Refresh button state
-                                    }
-                                }.addOnFailureListener {
-                                    Toast.makeText(
-                                        requireContext(),
-                                        "Failed to $actionMessage: ${it.message}",
-                                        Toast.LENGTH_SHORT
-                                    ).show()
+                    // Debug print
+                    android.util.Log.d("AppData", "ApplicationData: $appData")
+
+                    when (status) {
+                        "accepted" -> {
+                            binding.applyButton.apply {
+                                text = "Accepted"
+                                isEnabled = false
+                                setBackgroundColor(requireContext().getColor(android.R.color.holo_green_dark))
+                            }
+                        }
+
+                        "rejected" -> {
+                            binding.applyButton.apply {
+                                text = "Rejected"
+                                isEnabled = false
+                                setBackgroundColor(requireContext().getColor(android.R.color.holo_red_dark))
+                            }
+                        }
+
+                        else -> {
+                            val buttonText = if (isApplied) "Withdraw Application" else "Apply"
+                            val buttonColor =
+                                if (isApplied) android.R.color.holo_orange_dark else R.color.purple_500
+
+                            binding.applyButton.apply {
+                                text = buttonText
+                                setBackgroundColor(requireContext().getColor(buttonColor))
+                                setOnClickListener {
+                                    val action = if (isApplied) "Withdraw" else "Apply"
+                                    AlertDialog.Builder(requireContext())
+                                        .setTitle("$action Application?")
+                                        .setMessage("Do you want to $action your application for this job?")
+                                        .setPositiveButton("Yes") { _, _ ->
+                                            db.runTransaction { transaction ->
+                                                if (isApplied) {
+                                                    val appDocRef =
+                                                        appsCollection.document(existingApp!!.id)
+                                                    transaction.delete(appDocRef)
+                                                } else {
+                                                    val newAppRef = appsCollection.document()
+                                                    val appDataMap = mapOf(
+                                                        "email" to currentUserEmail,
+                                                        "status" to "pending",
+                                                        "appliedAt" to System.currentTimeMillis()
+                                                    )
+                                                    transaction.set(newAppRef, appDataMap)
+                                                }
+                                            }.addOnSuccessListener {
+                                                val toastMsg =
+                                                    if (isApplied) "Application withdrawn." else "Application submitted!"
+                                                Toast.makeText(
+                                                    requireContext(),
+                                                    toastMsg,
+                                                    Toast.LENGTH_SHORT
+                                                ).show()
+                                                onViewCreated(view, savedInstanceState)
+                                            }.addOnFailureListener {
+                                                Toast.makeText(
+                                                    requireContext(),
+                                                    "Failed to $action: ${it.message}",
+                                                    Toast.LENGTH_SHORT
+                                                ).show()
+                                            }
+                                        }
+                                        .setNegativeButton("Cancel", null)
+                                        .show()
                                 }
                             }
-                            .setNegativeButton("Cancel", null)
-                            .show()
+                        }
                     }
                 }
-            }.addOnFailureListener {
-                Toast.makeText(
-                    requireContext(),
-                    "Failed to check application status",
-                    Toast.LENGTH_SHORT
-                ).show()
-            }
+                .addOnFailureListener {
+                    Toast.makeText(
+                        requireContext(),
+                        "Failed to check application status",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
         }
 
         binding.jobTitle.text = title
@@ -147,7 +181,6 @@ class StudentJobDescriptionDialogFragment : DialogFragment() {
         binding.jobTimestamp.text = "Posted On: $formattedTimestamp"
         binding.closeButton.setOnClickListener { dismiss() }
     }
-
 
     override fun onStart() {
         super.onStart()

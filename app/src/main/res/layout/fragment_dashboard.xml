@@ -33,7 +33,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
-            android:text="View My Jobs"
+            android:text="View My Applications"
             app:layout_constraintTop_toBottomOf="@id/button_view_my_jobs" />
 
         <androidx.cardview.widget.CardView

@@ -18,6 +18,8 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.FileProvider
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
+import androidx.navigation.fragment.findNavController
+import com.example.recruitment.R
 import com.example.recruitment.databinding.FragmentHomeBinding
 import com.google.android.gms.auth.GoogleAuthUtil
 import com.google.android.gms.auth.api.signin.*
@@ -289,6 +291,9 @@ class HomeFragment : Fragment() {
         binding.pdfView.visibility = View.VISIBLE
         binding.btnSave.visibility = View.VISIBLE
         binding.tvFileName.text = currentFileName ?: "cv.pdf"
+        binding.buttonViewMyApplications.setOnClickListener {
+            findNavController().navigate(R.id.action_home_to_viewMyApplicationsFragment)
+        }
 
         try {
             context?.grantUriPermission(

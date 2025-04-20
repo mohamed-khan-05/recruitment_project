@@ -20,6 +20,7 @@
             app:destination="@id/myJobsFragment" />
     </fragment>
 
+
     <fragment
         android:id="@+id/navigation_search"
         android:name="com.example.recruitment.ui.search.EmployerSearchFragment"

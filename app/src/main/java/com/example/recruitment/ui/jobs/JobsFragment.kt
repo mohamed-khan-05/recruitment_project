@@ -66,9 +66,7 @@ class JobsFragment : Fragment() {
                 createOrNavigateToChat(job, bundle)
             }
         )
-
         binding.recyclerJobs.adapter = adapter
-
         binding.recyclerJobs.layoutManager = LinearLayoutManager(requireContext())
         binding.btnLoadMore.setOnClickListener {
             if (binding.btnLoadMore.isEnabled) {
