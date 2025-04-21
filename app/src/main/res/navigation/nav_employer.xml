@@ -20,6 +20,28 @@
             app:destination="@id/myJobsFragment" />
     </fragment>
 
+    <fragment
+        android:id="@+id/navigation_applicants"
+        android:name="com.example.recruitment.ui.jobs.ApplicantsFragment"
+        android:label="Applicants"
+        tools:layout="@layout/fragment_applicants">
+        <argument
+            android:name="jobId"
+            app:argType="string" />
+        <action
+            android:id="@+id/action_my_applicants_to_navigation_chat"
+            app:destination="@id/navigation_chat_page" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/navigation_chat"
+        android:name="com.example.recruitment.ui.chat.ChatFragment"
+        android:label="Chats"
+        tools:layout="@layout/fragment_chat">
+        <action
+            android:id="@+id/action_chat_to_chat_page"
+            app:destination="@id/navigation_chat_page" />
+    </fragment>
 
     <fragment
         android:id="@+id/navigation_search"
@@ -40,16 +62,6 @@
                 app:argType="string" />
         </action>
 
-    </fragment>
-
-    <fragment
-        android:id="@+id/navigation_chat"
-        android:name="com.example.recruitment.ui.chat.ChatFragment"
-        android:label="Chats"
-        tools:layout="@layout/fragment_chat">
-        <action
-            android:id="@+id/action_chat_to_chat_page"
-            app:destination="@id/navigation_chat_page" />
     </fragment>
 
     <fragment
@@ -74,5 +86,9 @@
         android:id="@+id/myJobsFragment"
         android:name="com.example.recruitment.ui.jobs.MyJobsFragment"
         android:label="My Jobs"
-        tools:layout="@layout/fragment_my_jobs" />
+        tools:layout="@layout/fragment_my_jobs">
+        <action
+            android:id="@+id/action_myJobsFragment_to_navigation_applicants"
+            app:destination="@id/navigation_applicants" />
+    </fragment>
 </navigation>

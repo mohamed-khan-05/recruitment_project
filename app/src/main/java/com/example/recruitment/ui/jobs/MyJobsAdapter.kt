@@ -3,15 +3,17 @@ package com.example.recruitment.ui.jobs
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.Button
 import android.widget.ImageButton
 import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
 import com.example.recruitment.R
 
 class MyJobsAdapter(
-    // Updated callback: now passes jobId, title, description, experienceLevel, workArrangement, and timestamp.
-    private val onJobClick: (String?, String, String, String, String, Long) -> Unit,
-    private val onDeleteClicked: (String) -> Unit
+    // 1) Added missing comma after onDeleteClicked
+    private val onJobClick: (String, String, String, String, String, Long) -> Unit,
+    private val onDeleteClicked: (String) -> Unit,
+    private val onViewApplicantsClicked: (String) -> Unit   // 2) Declared the new callback
 ) : RecyclerView.Adapter<MyJobsAdapter.JobViewHolder>() {
     private val jobs = mutableListOf<Pair<String, List<Any>>>()
 
@@ -22,7 +24,8 @@ class MyJobsAdapter(
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): JobViewHolder {
-        val view = LayoutInflater.from(parent.context).inflate(R.layout.item_job, parent, false)
+        val view = LayoutInflater.from(parent.context)
+            .inflate(R.layout.item_job, parent, false)
         return JobViewHolder(view)
     }
 
@@ -37,18 +40,22 @@ class MyJobsAdapter(
         val timestamp = jobData[4] as Long
 
         holder.title.text = title
+
         holder.itemView.setOnClickListener {
             onJobClick(jobId, title, description, experienceLevel, workArrangement, timestamp)
         }
-        holder.delete.setOnClickListener {
-            if (jobId != null) {
-                onDeleteClicked(jobId)
-            }
+        holder.deleteButton.setOnClickListener {
+            onDeleteClicked(jobId)
+        }
+        holder.viewApplicantsButton.setOnClickListener {
+            onViewApplicantsClicked(jobId)
         }
     }
 
     class JobViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
         val title: TextView = itemView.findViewById(R.id.jobTitle)
-        val delete: ImageButton = itemView.findViewById(R.id.deleteButton)
+        val deleteButton: ImageButton = itemView.findViewById(R.id.deleteButton)
+        val viewApplicantsButton: Button =
+            itemView.findViewById(R.id.viewApplicantsButton)  // ← wire up this view
     }
 }

@@ -67,6 +67,10 @@ dependencies {
     implementation("com.google.firebase:firebase-analytics")
     implementation("com.tom-roush:pdfbox-android:2.0.27.0")
 
+    implementation("com.google.android.material:material:1.9.0")
+    implementation("com.google.android.flexbox:flexbox:3.0.0")
+
+
     implementation("com.google.android.gms:play-services-auth:20.7.0")
     implementation("com.google.apis:google-api-services-drive:v3-rev20220815-2.0.0")
     implementation("com.google.api-client:google-api-client-android:2.2.0")
