@@ -1,3 +1,4 @@
+// ApplicantsFragment.kt
 package com.example.recruitment.ui.jobs
 
 import android.os.Bundle
@@ -23,11 +24,12 @@ class ApplicantsFragment : Fragment() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        jobId = arguments?.getString("arg_job_id") // 🔧 fixed key
+        jobId = arguments?.getString("arg_job_id")
     }
 
     override fun onCreateView(
-        inflater: LayoutInflater, container: ViewGroup?,
+        inflater: LayoutInflater,
+        container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View {
         _binding = FragmentApplicantsBinding.inflate(inflater, container, false)
@@ -44,24 +46,30 @@ class ApplicantsFragment : Fragment() {
             return
         }
 
-        adapter = ApplicantsAdapter(jid) { applicant ->
-            startChat(applicant)
-        }
+        adapter = ApplicantsAdapter(
+            jid,
+            onChatClick = { applicant -> startChat(applicant) },
+            onStatusUpdated = {
+                val statuses = mutableListOf<String>()
+                if (binding.checkPending.isChecked) statuses += "pending"
+                if (binding.checkAccepted.isChecked) statuses += "accepted"
+                if (binding.checkRejected.isChecked) statuses += "rejected"
+                loadApplicants(jid, statuses)
+            }
+        )
 
         binding.recyclerApplicants.layoutManager = LinearLayoutManager(requireContext())
         binding.recyclerApplicants.adapter = adapter
 
-        loadApplicants(jid, listOf("pending")) // default status
+        loadApplicants(jid, listOf("pending"))
 
-        // Checkbox status filters
-        val checkboxes = listOf(binding.checkPending, binding.checkAccepted, binding.checkRejected)
-        checkboxes.forEach {
+        listOf(binding.checkPending, binding.checkAccepted, binding.checkRejected).forEach {
             it.setOnCheckedChangeListener { _, _ ->
-                val selectedStatuses = mutableListOf<String>()
-                if (binding.checkPending.isChecked) selectedStatuses.add("pending")
-                if (binding.checkAccepted.isChecked) selectedStatuses.add("accepted")
-                if (binding.checkRejected.isChecked) selectedStatuses.add("rejected")
-                loadApplicants(jid, selectedStatuses)
+                val selected = mutableListOf<String>()
+                if (binding.checkPending.isChecked) selected += "pending"
+                if (binding.checkAccepted.isChecked) selected += "accepted"
+                if (binding.checkRejected.isChecked) selected += "rejected"
+                loadApplicants(jid, selected)
             }
         }
     }
@@ -73,69 +81,61 @@ class ApplicantsFragment : Fragment() {
             .get()
             .addOnSuccessListener { snap ->
                 if (snap.isEmpty) {
-                    Toast.makeText(requireContext(), "No applicants yet", Toast.LENGTH_SHORT).show()
                     adapter.submitList(emptyList())
-                    updateStatusCounts(0, 0, 0) // Update counts to zero
+                    updateStatusCounts(0, 0, 0)
                     return@addOnSuccessListener
                 }
 
-                // Filter applicants based on the selected statuses
-                val filteredApps = snap.documents.filter {
-                    statuses.contains(it.getString("status"))
-                }
-
-                // Count the number of applicants for each status
                 val statusCounts = snap.documents.groupingBy {
                     it.getString("status") ?: "unknown"
                 }.eachCount()
-
                 updateStatusCounts(
                     statusCounts["pending"] ?: 0,
                     statusCounts["accepted"] ?: 0,
                     statusCounts["rejected"] ?: 0
                 )
 
-                val tempList = mutableListOf<Applicant>()
-                var loadedCount = 0
-                val totalCount = filteredApps.size
+                if (statuses.isEmpty()) {
+                    adapter.submitList(emptyList())
+                    return@addOnSuccessListener
+                }
 
-                filteredApps.forEach { appDoc ->
-                    val email = appDoc.getString("email").orEmpty()
-                    val appId = appDoc.id
+                val filtered = snap.documents.filter { statuses.contains(it.getString("status")) }
+                if (filtered.isEmpty()) {
+                    adapter.submitList(emptyList())
+                    return@addOnSuccessListener
+                }
 
-                    db.collection("users")
-                        .whereEqualTo("email", email)
-                        .limit(1)
-                        .get()
-                        .addOnSuccessListener { userSnap ->
-                            val userDoc = userSnap.documents.firstOrNull()
-                            val fullName = userDoc?.getString("fullName").orEmpty()
-                            val userId = userDoc?.id
-
-                            if (userId != null) {
-                                db.collection("users")
-                                    .document(userId)
-                                    .collection("keywords")
-                                    .document("fromCv")
-                                    .get()
-                                    .addOnSuccessListener { kwDoc ->
-                                        val kws =
-                                            kwDoc.get("keywords") as? List<String> ?: emptyList()
-                                        tempList += Applicant(appId, email, fullName, kws)
-                                        if (++loadedCount == totalCount) adapter.submitList(tempList)
+                val temp = mutableListOf<Applicant>()
+                var count = 0
+                filtered.forEach { doc ->
+                    val email = doc.getString("email").orEmpty()
+                    val id = doc.id
+                    db.collection("users").whereEqualTo("email", email).limit(1).get()
+                        .addOnSuccessListener { users ->
+                            val user = users.documents.firstOrNull()
+                            val name = user?.getString("fullName").orEmpty()
+                            val uid = user?.id
+                            if (uid != null) {
+                                db.collection("users").document(uid)
+                                    .collection("keywords").document("fromCv").get()
+                                    .addOnSuccessListener { kw ->
+                                        val kws = kw.get("keywords") as? List<String> ?: emptyList()
+                                        temp += Applicant(id, email, name, kws)
+                                        if (++count == filtered.size) adapter.submitList(temp)
                                     }
                                     .addOnFailureListener {
-                                        tempList += Applicant(appId, email, fullName, emptyList())
-                                        if (++loadedCount == totalCount) adapter.submitList(tempList)
+                                        temp += Applicant(id, email, name, emptyList())
+                                        if (++count == filtered.size) adapter.submitList(temp)
                                     }
                             } else {
-                                tempList += Applicant(appId, email, fullName, emptyList())
-                                if (++loadedCount == totalCount) adapter.submitList(tempList)
+                                temp += Applicant(id, email, name, emptyList())
+                                if (++count == filtered.size) adapter.submitList(temp)
                             }
                         }
                         .addOnFailureListener {
-                            tempList += Applicant(appId, email, "", emptyList())
-                            if (++loadedCount == totalCount) adapter.submitList(tempList)
+                            temp += Applicant(id, email, "", emptyList())
+                            if (++count == filtered.size) adapter.submitList(temp)
                         }
                 }
             }
@@ -151,23 +151,17 @@ class ApplicantsFragment : Fragment() {
         binding.tvRejectedCount.text = "Rejected: $rejected"
     }
 
-
     private fun startChat(applicant: Applicant) {
-        val employerEmail = FirebaseAuth.getInstance().currentUser?.email ?: return
+        val email = FirebaseAuth.getInstance().currentUser?.email ?: return
         val bundle = Bundle().apply {
             putString("applicantEmail", applicant.email)
             putString("applicantId", applicant.applicationId)
         }
-
-        db.collection("conversations")
-            .whereArrayContains("participants", employerEmail)
-            .get()
-            .addOnSuccessListener { snapshot ->
-                val existing = snapshot.documents.firstOrNull { doc ->
-                    val participants = doc.get("participants") as? List<*>
-                    participants?.contains(applicant.email) == true
+        db.collection("conversations").whereArrayContains("participants", email).get()
+            .addOnSuccessListener { snap ->
+                val existing = snap.documents.firstOrNull { d ->
+                    (d.get("participants") as? List<*>)?.contains(applicant.email) == true
                 }
-
                 if (existing != null) {
                     bundle.putString("chatId", existing.id)
                     findNavController().navigate(
@@ -175,40 +169,21 @@ class ApplicantsFragment : Fragment() {
                         bundle
                     )
                 } else {
-                    val newConversationData = mapOf(
-                        "participants" to listOf(employerEmail, applicant.email),
+                    val data = mapOf(
+                        "participants" to listOf(email, applicant.email),
                         "lastTimestamp" to System.currentTimeMillis(),
                         "lastMessage" to "",
-                        "unreadMessagesCount" to mapOf(
-                            employerEmail to 0,
-                            applicant.email to 0
-                        )
+                        "unreadMessagesCount" to mapOf(email to 0, applicant.email to 0)
                     )
-
-                    db.collection("conversations")
-                        .add(newConversationData)
-                        .addOnSuccessListener { newDoc ->
-                            bundle.putString("chatId", newDoc.id)
+                    db.collection("conversations").add(data)
+                        .addOnSuccessListener { doc ->
+                            bundle.putString("chatId", doc.id)
                             findNavController().navigate(
                                 R.id.action_my_applicants_to_navigation_chat,
                                 bundle
                             )
                         }
-                        .addOnFailureListener { e ->
-                            Toast.makeText(
-                                context,
-                                "Failed to create conversation: ${e.message}",
-                                Toast.LENGTH_SHORT
-                            ).show()
-                        }
                 }
-            }
-            .addOnFailureListener { e ->
-                Toast.makeText(
-                    context,
-                    "Error fetching conversations: ${e.message}",
-                    Toast.LENGTH_SHORT
-                ).show()
             }
     }
 
