@@ -1,8 +1,13 @@
 package com.example.recruitment
 
+import android.Manifest
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 import androidx.navigation.findNavController
 import androidx.navigation.ui.AppBarConfiguration
 import androidx.navigation.ui.setupActionBarWithNavController
@@ -13,6 +18,11 @@ import com.google.android.material.bottomnavigation.BottomNavigationView
 
 class EmployerActivity : AppCompatActivity() {
     private lateinit var binding: ActivityEmployerBinding
+    private lateinit var notificationHelper: NotificationHelper
+
+    companion object {
+        private const val REQUEST_CODE_POST_NOTIFICATIONS = 102
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -25,6 +35,25 @@ class EmployerActivity : AppCompatActivity() {
 
         binding = ActivityEmployerBinding.inflate(layoutInflater)
         setContentView(binding.root)
+
+        // ✅ Ask for notification permission (Android 13+)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(
+                    this,
+                    Manifest.permission.POST_NOTIFICATIONS
+                ) != PackageManager.PERMISSION_GRANTED
+            ) {
+                ActivityCompat.requestPermissions(
+                    this,
+                    arrayOf(Manifest.permission.POST_NOTIFICATIONS),
+                    REQUEST_CODE_POST_NOTIFICATIONS
+                )
+            }
+        }
+
+        // ✅ Start listening for notifications
+        notificationHelper = NotificationHelper(this)
+        notificationHelper.startListening(currentUser.uid)
 
         val navView: BottomNavigationView = binding.navViewEmployer
         val navController = findNavController(R.id.nav_host_fragment_employer)
@@ -59,6 +88,12 @@ class EmployerActivity : AppCompatActivity() {
                 }
             }
         }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        // ✅ Stop listening for notifications
+        notificationHelper.stopListening()
     }
 
     override fun onSupportNavigateUp(): Boolean {

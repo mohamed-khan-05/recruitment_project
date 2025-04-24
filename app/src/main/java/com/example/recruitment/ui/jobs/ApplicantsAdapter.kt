@@ -73,19 +73,72 @@ class ApplicantsAdapter(
         context: android.content.Context
     ) {
         val decisionTime = System.currentTimeMillis() / 1000
-        db.collection("jobs").document(jobId).collection("applications")
+        val appRef = db.collection("jobs")
+            .document(jobId)
+            .collection("applications")
             .document(applicant.applicationId)
-            .update(mapOf("status" to newStatus, "decisionAt" to decisionTime))
-            .addOnSuccessListener {
-                applicants.remove(applicant)
-                notifyDataSetChanged()
-                Toast.makeText(context, "Applicant $newStatus", Toast.LENGTH_SHORT).show()
-                onStatusUpdated()
-            }
-            .addOnFailureListener {
-                Toast.makeText(context, "Failed to update status", Toast.LENGTH_SHORT).show()
-            }
+
+        // 1️⃣ Update application status
+        appRef.update(
+            mapOf(
+                "status" to newStatus,
+                "decisionAt" to decisionTime
+            )
+        ).addOnSuccessListener {
+            // 2️⃣ Fetch the job document to get its title
+            db.collection("jobs")
+                .document(jobId)
+                .get()
+                .addOnSuccessListener { jobSnapshot ->
+                    val jobTitle = jobSnapshot.getString("title") ?: "your application"
+
+                    // 3️⃣ Query user by email
+                    db.collection("users")
+                        .whereEqualTo("email", applicant.email)
+                        .get()
+                        .addOnSuccessListener { querySnapshot ->
+                            querySnapshot.documents.forEach { userDoc ->
+                                val userId = userDoc.id
+                                // 4️⃣ Build and add notification with jobTitle
+                                val notification = mapOf(
+                                    "title" to if (newStatus == "accepted") "Application Accepted" else "Application Rejected",
+                                    "message" to "Your application for \"$jobTitle\" was $newStatus.",
+                                    "type" to "application_$newStatus",
+                                    "timestamp" to decisionTime,
+                                    "read" to false
+                                )
+                                db.collection("users")
+                                    .document(userId)
+                                    .collection("notifications")
+                                    .add(notification)
+                            }
+                            // 5️⃣ Refresh UI
+                            Toast.makeText(context, "Applicant $newStatus", Toast.LENGTH_SHORT)
+                                .show()
+                            applicants.remove(applicant)
+                            notifyDataSetChanged()
+                            onStatusUpdated()
+                        }
+                        .addOnFailureListener { e ->
+                            Toast.makeText(
+                                context,
+                                "Failed to notify: ${e.message}",
+                                Toast.LENGTH_LONG
+                            ).show()
+                        }
+                }
+                .addOnFailureListener { e ->
+                    Toast.makeText(
+                        context,
+                        "Failed to fetch job title: ${e.message}",
+                        Toast.LENGTH_LONG
+                    ).show()
+                }
+        }.addOnFailureListener {
+            Toast.makeText(context, "Failed to update status", Toast.LENGTH_SHORT).show()
+        }
     }
+
 
     class ViewHolder(val binding: ItemApplicantBinding) : RecyclerView.ViewHolder(binding.root)
 }
