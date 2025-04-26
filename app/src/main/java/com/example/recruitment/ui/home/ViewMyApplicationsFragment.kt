@@ -4,21 +4,26 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.CompoundButton
 import androidx.fragment.app.Fragment
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.example.recruitment.databinding.FragmentViewMyApplicationsBinding
 import com.example.recruitment.model.ApplicationData
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
-import java.util.Date
 
 class ViewMyApplicationsFragment : Fragment() {
 
     private var _binding: FragmentViewMyApplicationsBinding? = null
     private val binding get() = _binding!!
+
     private val db = FirebaseFirestore.getInstance()
     private val currentEmail = FirebaseAuth.getInstance().currentUser?.email
-    private val applicationsList = mutableListOf<ApplicationData>()
+
+    // raw list and filtered list
+    private val allApplications = mutableListOf<ApplicationData>()
+    private val visibleApplications = mutableListOf<ApplicationData>()
+
     private lateinit var adapter: ApplicationsAdapter
 
     override fun onCreateView(
@@ -32,9 +37,20 @@ class ViewMyApplicationsFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        adapter = ApplicationsAdapter(applicationsList)
+        adapter = ApplicationsAdapter(visibleApplications)
         binding.recyclerViewApplications.layoutManager = LinearLayoutManager(requireContext())
         binding.recyclerViewApplications.adapter = adapter
+
+        // set up checkbox listeners
+        listOf(
+            binding.cbPending,
+            binding.cbAccepted,
+            binding.cbRejected
+        ).forEach { cb ->
+            cb.setOnCheckedChangeListener { _, _ ->
+                applyFilter()
+            }
+        }
 
         fetchApplications()
     }
@@ -44,61 +60,73 @@ class ViewMyApplicationsFragment : Fragment() {
             db.collection("jobs")
                 .get()
                 .addOnSuccessListener { jobsSnapshot ->
-                    applicationsList.clear()
+                    allApplications.clear()
 
                     val jobs = jobsSnapshot.documents
                     if (jobs.isEmpty()) {
-                        adapter.notifyDataSetChanged()
+                        applyFilter()
                         return@addOnSuccessListener
                     }
 
-                    var remainingJobs = jobs.size
-
-                    for (jobDoc in jobs) {
-                        val jobId = jobDoc.id
-                        val title = jobDoc.getString("title") ?: "No Title"
-                        val employerEmail = jobDoc.getString("employerEmail") ?: "No Company"
+                    var remaining = jobs.size
+                    for (job in jobs) {
+                        val jobId = job.id
+                        val title = job.getString("title") ?: "No Title"
+                        val employerEmail = job.getString("employerEmail") ?: "No Company"
 
                         db.collection("jobs")
                             .document(jobId)
                             .collection("applications")
                             .whereEqualTo("email", email)
                             .get()
-                            .addOnSuccessListener { appSnapshot ->
-                                for (appDoc in appSnapshot) {
+                            .addOnSuccessListener { apps ->
+                                for (appDoc in apps) {
                                     val status = appDoc.getString("status") ?: "pending"
                                     val appliedAt = appDoc.getLong("appliedAt") ?: 0L
                                     val decisionAt = appDoc.getLong("decisionAt") ?: 0L
 
-                                    val application = ApplicationData(
-                                        jobId = jobId,
-                                        jobTitle = title,
-                                        companyName = employerEmail,
-                                        status = status,
-                                        appliedAt = appliedAt,
-                                        decisionAt = decisionAt
+                                    allApplications.add(
+                                        ApplicationData(
+                                            jobId = jobId,
+                                            jobTitle = title,
+                                            companyName = employerEmail,
+                                            status = status,
+                                            appliedAt = appliedAt,
+                                            decisionAt = decisionAt
+                                        )
                                     )
-
-                                    applicationsList.add(application)
                                 }
-
-                                remainingJobs--
-                                if (remainingJobs == 0) {
-                                    adapter.notifyDataSetChanged()
+                                if (--remaining == 0) {
+                                    applyFilter()
                                 }
                             }
                             .addOnFailureListener {
-                                remainingJobs--
-                                if (remainingJobs == 0) {
-                                    adapter.notifyDataSetChanged()
+                                if (--remaining == 0) {
+                                    applyFilter()
                                 }
                             }
                     }
                 }
                 .addOnFailureListener {
-                    adapter.notifyDataSetChanged()
+                    applyFilter()
                 }
         }
+    }
+
+    private fun applyFilter() {
+        // gather which statuses are checked
+        val selectedStatuses = mutableSetOf<String>().apply {
+            if (binding.cbPending.isChecked) add("pending")
+            if (binding.cbAccepted.isChecked) add("accepted")
+            if (binding.cbRejected.isChecked) add("rejected")
+        }
+
+        // rebuild visibleApplications
+        visibleApplications.clear()
+        visibleApplications.addAll(
+            allApplications.filter { it.status in selectedStatuses }
+        )
+        adapter.notifyDataSetChanged()
     }
 
     override fun onDestroyView() {
