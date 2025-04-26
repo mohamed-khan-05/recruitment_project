@@ -9,5 +9,6 @@ data class Job(
     val workArrangement: String,
     val timestamp: Long = 0L,
     val employerEmail: String = "",
+    val status: String = "",
     val applicants: List<String> = listOf()
 )

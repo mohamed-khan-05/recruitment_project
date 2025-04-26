@@ -36,12 +36,12 @@ class DashboardFragment : Fragment() {
             showCreateJobDialog()
         }
         viewModel.applicationViews.observe(viewLifecycleOwner) { count ->
-            binding.tvProfileViews.text = count.toString()
+            binding.tvApplicants.text = count.toString()
         }
         viewModel.totalApplications.observe(viewLifecycleOwner) { count ->
             binding.tvTotalApplications.text = count.toString()
         }
-        binding.cardProfileViews.setOnClickListener {
+        binding.cardApplicants.setOnClickListener {
             findNavController().navigate(R.id.action_dashboard_to_applicationViewsFragment)
         }
         binding.cardApplications.setOnClickListener {
@@ -62,5 +62,10 @@ class DashboardFragment : Fragment() {
     override fun onDestroyView() {
         super.onDestroyView()
         _binding = null
+    }
+
+    override fun onResume() {
+        super.onResume()
+        viewModel.refreshData()
     }
 }

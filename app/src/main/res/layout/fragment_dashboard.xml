@@ -29,7 +29,7 @@
             app:layout_constraintTop_toBottomOf="@id/button_create_job" />
 
         <androidx.cardview.widget.CardView
-            android:id="@+id/card_profile_views"
+            android:id="@+id/card_applicants"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_margin="16dp"
@@ -47,12 +47,12 @@
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="Applicants"
+                    android:text="Total Pending Applicants"
                     android:textSize="18sp"
                     android:textStyle="bold" />
 
                 <TextView
-                    android:id="@+id/tv_profile_views"
+                    android:id="@+id/tv_applicants"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="8dp"
@@ -68,7 +68,7 @@
             app:cardElevation="4dp"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@id/card_profile_views">
+            app:layout_constraintTop_toBottomOf="@id/card_applicants">
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -79,7 +79,7 @@
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="Total Applications"
+                    android:text="Total Job Applications"
                     android:textSize="18sp"
                     android:textStyle="bold" />
 

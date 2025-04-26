@@ -6,6 +6,7 @@ import android.view.ViewGroup
 import android.widget.Button
 import android.widget.ImageButton
 import android.widget.TextView
+import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.RecyclerView
 import com.example.recruitment.R
 
@@ -37,9 +38,19 @@ class MyJobsAdapter(
         val description = jobData[1] as String
         val experienceLevel = jobData[2] as String
         val workArrangement = jobData[3] as String
-        val timestamp = jobData[4] as Long
+        val status = jobData[4] as String
+        val timestamp = jobData[5] as Long
 
         holder.title.text = title
+
+        val bgColorRes = if (status == "closed")
+            R.color.job_closed_bg
+        else
+            R.color.job_open_bg
+
+        holder.itemView.setBackgroundColor(
+            ContextCompat.getColor(holder.itemView.context, bgColorRes)
+        )
 
         holder.itemView.setOnClickListener {
             onJobClick(jobId, title, description, experienceLevel, workArrangement, timestamp)

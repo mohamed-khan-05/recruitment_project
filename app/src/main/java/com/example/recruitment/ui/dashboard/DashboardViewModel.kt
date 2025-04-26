@@ -15,31 +15,59 @@ class DashboardViewModel : ViewModel() {
     val totalApplications: LiveData<Int> get() = _totalApplications
 
     init {
-        fetchApplicationViews()
+        fetchTotApplicants()
         fetchTotalApplications()
     }
 
-    private fun fetchApplicationViews() {
+    private fun fetchTotApplicants() {
         val userEmail = FirebaseAuth.getInstance().currentUser?.email
         if (userEmail != null) {
             val db = FirebaseFirestore.getInstance()
-            db.collection("applicationViews") // Change to your actual Firestore collection name
-                .whereEqualTo(
-                    "email",
-                    userEmail
-                )
+            db.collection("jobs")
+                .whereEqualTo("employerEmail", userEmail)
+                .whereEqualTo("status", "open")
                 .get()
-                .addOnSuccessListener { querySnapshot ->
-                    // Count the number of views for this user in the applicationViews collection
-                    _applicationViews.value = querySnapshot.size()
+                .addOnSuccessListener { jobsSnapshot ->
+                    var pendingCount = 0
+                    var jobsProcessed = 0
+
+                    if (jobsSnapshot.isEmpty) {
+                        _applicationViews.value = 0
+                        return@addOnSuccessListener
+                    }
+
+                    jobsSnapshot.documents.forEach { jobDoc ->
+                        db.collection("jobs")
+                            .document(jobDoc.id)
+                            .collection("applications")
+                            .whereEqualTo("status", "pending")
+                            .get()
+                            .addOnSuccessListener { appsSnap ->
+                                pendingCount += appsSnap.size()
+                                jobsProcessed++
+
+                                // update only after all jobs processed
+                                if (jobsProcessed == jobsSnapshot.size()) {
+                                    _applicationViews.value = pendingCount
+                                }
+                            }
+                            .addOnFailureListener { e ->
+                                jobsProcessed++
+                                if (jobsProcessed == jobsSnapshot.size()) {
+                                    _applicationViews.value = pendingCount
+                                }
+                                Log.e("DashboardViewModel", "Error fetching applications: ", e)
+                            }
+                    }
                 }
                 .addOnFailureListener { exception ->
-                    Log.e("DashboardViewModel", "Error fetching application views: ", exception)
+                    Log.e("DashboardViewModel", "Error fetching jobs: ", exception)
                 }
         } else {
             Log.e("DashboardViewModel", "User is not logged in.")
         }
     }
+
 
     fun fetchTotalApplications() {
         val userEmail = FirebaseAuth.getInstance().currentUser?.email
@@ -47,6 +75,7 @@ class DashboardViewModel : ViewModel() {
             val db = FirebaseFirestore.getInstance()
             db.collection("jobs")
                 .whereEqualTo("employerEmail", userEmail)
+                .whereEqualTo("status", "open")
                 .get()
                 .addOnSuccessListener { querySnapshot ->
                     _totalApplications.value = querySnapshot.size()
@@ -57,5 +86,10 @@ class DashboardViewModel : ViewModel() {
         } else {
             Log.e("DashboardViewModel", "User is not logged in.")
         }
+    }
+
+    fun refreshData() {
+        fetchTotApplicants()
+        fetchTotalApplications()
     }
 }

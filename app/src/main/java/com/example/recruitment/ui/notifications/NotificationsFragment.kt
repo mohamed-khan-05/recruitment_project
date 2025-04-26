@@ -1,38 +1,104 @@
 package com.example.recruitment.ui.notifications
 
+import android.app.AlertDialog
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.TextView
+import android.widget.Toast
 import androidx.fragment.app.Fragment
-import androidx.lifecycle.ViewModelProvider
+import androidx.recyclerview.widget.LinearLayoutManager
 import com.example.recruitment.databinding.FragmentNotificationsBinding
+import com.example.recruitment.model.NotificationData
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
 
 class NotificationsFragment : Fragment() {
 
     private var _binding: FragmentNotificationsBinding? = null
-
-    // This property is only valid between onCreateView and
-    // onDestroyView.
     private val binding get() = _binding!!
 
+    private val db = FirebaseFirestore.getInstance()
+    private val currentUid = FirebaseAuth.getInstance().currentUser?.uid
+
+    private val notifications = mutableListOf<NotificationData>()
+    private lateinit var adapter: NotificationAdapter
+
     override fun onCreateView(
-        inflater: LayoutInflater,
-        container: ViewGroup?,
+        inflater: LayoutInflater, container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View {
-        val notificationsViewModel =
-            ViewModelProvider(this).get(NotificationsViewModel::class.java)
-
         _binding = FragmentNotificationsBinding.inflate(inflater, container, false)
-        val root: View = binding.root
+        return binding.root
+    }
 
-        val textView: TextView = binding.textNotifications
-        notificationsViewModel.text.observe(viewLifecycleOwner) {
-            textView.text = it
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
+
+        adapter = NotificationAdapter(notifications) { nd, pos ->
+            // show confirmation dialog
+            AlertDialog.Builder(requireContext())
+                .setTitle("Delete notification")
+                .setMessage("Are you sure you want to delete this notification?")
+                .setPositiveButton("Delete") { _, _ ->
+                    // user confirmed: delete from Firestore
+                    currentUid?.let { uid ->
+                        db.collection("users")
+                            .document(uid)
+                            .collection("notifications")
+                            .document(nd.id)
+                            .delete()
+                            .addOnSuccessListener {
+                                notifications.removeAt(pos)
+                                adapter.notifyItemRemoved(pos)
+                                toggleEmptyView()
+                            }
+                            .addOnFailureListener { e ->
+                                Toast.makeText(
+                                    requireContext(),
+                                    "Failed to delete: ${e.message}",
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                            }
+                    }
+                }
+                .setNegativeButton("Cancel", null)
+                .show()
         }
-        return root
+
+        binding.rvNotifications.layoutManager = LinearLayoutManager(requireContext())
+        binding.rvNotifications.adapter = adapter
+
+        loadNotifications()
+    }
+
+    private fun loadNotifications() {
+        currentUid?.let { uid ->
+            db.collection("users")
+                .document(uid)
+                .collection("notifications")
+                .orderBy("timestamp", com.google.firebase.firestore.Query.Direction.DESCENDING)
+                .get()
+                .addOnSuccessListener { snap ->
+                    notifications.clear()
+                    for (doc in snap.documents) {
+                        doc.toObject(NotificationData::class.java)
+                            ?.copy(id = doc.id)
+                            ?.let { notifications.add(it) }
+                    }
+                    adapter.notifyDataSetChanged()
+                    toggleEmptyView()
+                }
+                .addOnFailureListener {
+                    toggleEmptyView()
+                }
+        }
+    }
+
+    private fun toggleEmptyView() {
+        val empty = notifications.isEmpty()
+        binding.tvEmpty.visibility = if (empty) View.VISIBLE else View.GONE
+        binding.rvNotifications.visibility = if (empty) View.GONE else View.VISIBLE
     }
 
     override fun onDestroyView() {

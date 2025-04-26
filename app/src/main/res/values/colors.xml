@@ -10,4 +10,8 @@
     <color name="green">#2E7D32</color>
     <color name="red">#C62828</color>
 
+    <color name="notification_unread_bg">#EEEEEE</color>
+
+    <color name="job_open_bg">#E8F5E9</color>
+    <color name="job_closed_bg">#FFEBEE</color>
 </resources>

@@ -8,7 +8,7 @@ import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
-import androidx.navigation.fragment.findNavController
+import androidx.navigation.fragment.findNavController                // ← add this
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.example.recruitment.R
 import com.example.recruitment.databinding.FragmentMyJobsBinding
@@ -27,109 +27,115 @@ class MyJobsFragment : Fragment() {
     private lateinit var adapter: MyJobsAdapter
 
     override fun onCreateView(
-        inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?
-    ): View {
-        _binding = FragmentMyJobsBinding.inflate(inflater, container, false)
-        return binding.root
-    }
+        inflater: LayoutInflater, container: ViewGroup?,
+        savedInstanceState: Bundle?
+    ) = FragmentMyJobsBinding.inflate(inflater, container, false).also {
+        _binding = it
+    }.root
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
         adapter = MyJobsAdapter(
-            onJobClick = { _, title, description, experienceLevel, workArrangement, timestamp ->
-                showJobDescriptionDialog(
-                    title,
-                    description,
-                    experienceLevel,
-                    workArrangement,
-                    timestamp
-                )
+            onJobClick = { _, title, desc, expLvl, workArr, ts ->
+                JobDescriptionDialogFragment
+                    .newInstance(title, desc, expLvl, workArr, ts)
+                    .show(parentFragmentManager, "JobDescriptionDialog")
             },
-            onDeleteClicked = { jobId ->
-                confirmDelete(jobId)
-            },
+            onDeleteClicked = { jobId -> confirmDelete(jobId) },
             onViewApplicantsClicked = { jobId ->
-                val bundle = Bundle().apply {
-                    putString("arg_job_id", jobId) // Must match the key in ApplicantsFragment
-                }
-                findNavController().navigate(R.id.navigation_applicants, bundle)
-
+                findNavController()
+                    .navigate(
+                        R.id.navigation_applicants,
+                        Bundle().apply { putString("arg_job_id", jobId) }
+                    )
             }
         )
 
         binding.recyclerJobs.layoutManager = LinearLayoutManager(requireContext())
         binding.recyclerJobs.adapter = adapter
 
-        loadJobs()
+        binding.cbOpen.setOnCheckedChangeListener { _, _ -> loadJobs() }
+        binding.cbClosed.setOnCheckedChangeListener { _, _ -> loadJobs() }
+
+        loadJobs()  // initial load
     }
 
     private fun loadJobs() {
         val email = auth.currentUser?.email ?: return
-        db.collection("jobs")
+
+        val statuses = mutableListOf<String>().apply {
+            if (binding.cbOpen.isChecked) add("open")
+            if (binding.cbClosed.isChecked) add("closed")
+        }
+
+        if (statuses.isEmpty()) {
+            adapter.submitList(emptyList())
+            Toast.makeText(
+                requireContext(),
+                "Please select at least one status filter.",
+                Toast.LENGTH_SHORT
+            ).show()
+            return
+        }
+
+        var query = db.collection("jobs")
             .whereEqualTo("employerEmail", email)
-            .whereEqualTo("status", "open")
-            .get()
+
+        query = if (statuses.size == 1) {
+            query.whereEqualTo("status", statuses[0])
+        } else {
+            query.whereIn("status", statuses)
+        }
+
+        query.get()
             .addOnSuccessListener { result ->
-                val jobs = result.map { document ->
-                    val title = document.getString("title").orEmpty()
-                    val description = document.getString("description").orEmpty()
-                    val experienceLevel = document.getString("experienceLevel").orEmpty()
-                    val workArrangement = document.getString("workArrangement").orEmpty()
-                    val timestamp = document.getLong("timestamp") ?: 0L
-                    document.id to listOf(
+                val jobs = result.map { doc ->
+                    val title = doc.getString("title").orEmpty()
+                    val description = doc.getString("description").orEmpty()
+                    val experienceLevel = doc.getString("experienceLevel").orEmpty()
+                    val workArrangement = doc.getString("workArrangement").orEmpty()
+                    val status = doc.getString("status").orEmpty()
+                    val timestamp = doc.getLong("timestamp") ?: 0L
+                    doc.id to listOf(
                         title,
                         description,
                         experienceLevel,
                         workArrangement,
+                        status,
                         timestamp
                     )
                 }
                 if (jobs.isEmpty()) {
                     Toast.makeText(requireContext(), "No jobs found", Toast.LENGTH_SHORT).show()
-                } else {
-                    adapter.submitList(jobs)
                 }
+                adapter.submitList(jobs)
             }
-    }
-
-    private fun showJobDescriptionDialog(
-        title: String,
-        description: String,
-        experienceLevel: String,
-        workArrangement: String,
-        timestamp: Long
-    ) {
-        val dialog = JobDescriptionDialogFragment.newInstance(
-            title,
-            description,
-            experienceLevel,
-            workArrangement,
-            timestamp
-        )
-        dialog.show(parentFragmentManager, "JobDescriptionDialog")
+            .addOnFailureListener {
+                Toast.makeText(
+                    requireContext(),
+                    "Failed to load jobs: ${it.message}",
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
     }
 
     private fun confirmDelete(jobId: String) {
         AlertDialog.Builder(requireContext())
             .setTitle("Delete Job")
-            .setMessage("Are you sure you want to delete this job?")
-            .setPositiveButton("Delete") { _, _ -> deleteJob(jobId) }
-            .setNegativeButton("Cancel", null)
+            .setMessage("Are you sure you want to close this job?")
+            .setPositiveButton("Yes") { _, _ -> deleteJob(jobId) }
+            .setNegativeButton("No", null)
             .show()
     }
 
     private fun deleteJob(jobId: String) {
-        val updates = hashMapOf<String, Any>(
-            "status" to "closed"
-        )
-
         db.collection("jobs").document(jobId)
-            .update(updates)
+            .update("status", "closed")
             .addOnSuccessListener {
                 Toast.makeText(requireContext(), "Job closed", Toast.LENGTH_SHORT).show()
                 loadJobs()
-                dashboardViewModel.fetchTotalApplications() // Refresh dashboard count
+                dashboardViewModel.fetchTotalApplications()
             }
             .addOnFailureListener {
                 Toast.makeText(requireContext(), "Failed to close job", Toast.LENGTH_SHORT).show()
