@@ -69,10 +69,8 @@ class HomeFragment : Fragment() {
                     currentFileName = getFileName(originalUri)
                     showPreview(currentFileUri!!)
                     currentCvText = extractTextFromPdf(currentFileUri!!).toString()
-                    val jobTitle = binding.etJobTitle.text.toString()
-                    if (jobTitle.isNotBlank()) {
-                        saveKeywordsWithNlp(currentCvText, jobTitle)
-                    }
+                    val jobTitle =
+                        binding.etJobTitle.text.toString().takeIf { it.isNotBlank() } ?: return@let
                     saveKeywordsWithNlp(currentCvText, jobTitle)
                 } catch (e: Exception) {
                     Toast.makeText(
@@ -131,6 +129,8 @@ class HomeFragment : Fragment() {
                     pendingFileUri?.let { uri ->
                         pendingJobTitle?.let { jobTitle ->
                             uploadCvToDrive(account, uri, jobTitle)
+                            pendingFileUri = null
+                            pendingJobTitle = null
                         }
                     }
                 } catch (e: ApiException) {
@@ -154,6 +154,23 @@ class HomeFragment : Fragment() {
         return binding.root
     }
 
+    private fun enableCvUi() {
+        binding.btnUpload.isEnabled = true
+        binding.btnSave.isEnabled = true
+        // and re-check any existing CV metadata if needed:
+        checkDriveFileExists()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        val account = GoogleSignIn.getLastSignedInAccount(requireContext())
+        if (account == null) {
+            binding.btnUpload.isEnabled = false
+            binding.btnSave.isEnabled = false
+            googleSignInLauncher.launch(googleSignInClient.signInIntent)
+        }
+    }
+
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         database = FirebaseDatabase.getInstance()
@@ -164,15 +181,25 @@ class HomeFragment : Fragment() {
             .requestEmail()
             .requestScopes(Scope(DriveScopes.DRIVE_FILE))
             .build()
-
         googleSignInClient = GoogleSignIn.getClient(requireActivity(), gso)
 
+        // Require Firebase login
         if (currentUserId == null) {
             Toast.makeText(context, "User not logged in", Toast.LENGTH_SHORT).show()
             return
         }
 
-        checkDriveFileExists()
+        val account = GoogleSignIn.getLastSignedInAccount(requireContext())
+        if (account == null) {
+            // Not signed into Google yet – disable UI and launch login
+            binding.btnUpload.isEnabled = false
+            binding.btnSave.isEnabled = false
+            googleSignInLauncher.launch(googleSignInClient.signInIntent)
+        } else {
+            // Already signed in – enable UI
+            enableCvUi()
+            checkDriveFileExists()
+        }
 
         binding.btnUpload.setOnClickListener {
             filePicker.launch("application/pdf")
@@ -184,18 +211,25 @@ class HomeFragment : Fragment() {
                 binding.tilJobTitle.error = "Job title is required"
                 return@setOnClickListener
             }
+
             currentFileUri?.let { uri ->
+                // 1) remember what we're about to upload
+                pendingFileUri = uri
+                pendingJobTitle = jobTitle
                 val account = GoogleSignIn.getLastSignedInAccount(requireContext())
-                if (account == null) {
-                    pendingJobTitle = jobTitle
-                    pendingFileUri = uri
-                    googleSignInLauncher.launch(googleSignInClient.signInIntent)
-                } else {
+                if (account != null) {
                     uploadCvToDrive(account, uri, jobTitle)
+                } else {
+                    // disable UI so they don’t spam clicks
+                    binding.btnUpload.isEnabled = false
+                    binding.btnSave.isEnabled = false
+                    // launch the OAuth flow
+                    googleSignInLauncher.launch(googleSignInClient.signInIntent)
                 }
             } ?: Toast.makeText(context, "Please upload a CV first", Toast.LENGTH_SHORT).show()
         }
     }
+
 
     private fun checkExistingCv() {
         database.reference.child("users/$currentUserId/cv").get().addOnSuccessListener { snapshot ->
