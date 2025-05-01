@@ -1,7 +1,6 @@
 package com.example.recruitment.ui.home
 
 import android.app.Activity
-import androidx.appcompat.app.AlertDialog
 import android.util.Log
 import com.itextpdf.kernel.pdf.PdfReader
 import com.itextpdf.kernel.pdf.PdfDocument
@@ -22,7 +21,6 @@ import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
 import com.example.recruitment.R
 import com.example.recruitment.databinding.FragmentHomeBinding
-import com.google.android.gms.auth.GoogleAuthUtil
 import com.google.android.gms.auth.api.signin.*
 import com.google.android.gms.common.api.ApiException
 import com.google.android.gms.common.api.Scope
@@ -33,21 +31,21 @@ import com.google.api.services.drive.Drive
 import com.google.api.services.drive.DriveScopes
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.database.FirebaseDatabase
-import com.google.firebase.database.ServerValue
 import com.google.firebase.firestore.FieldValue
+import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.ktx.Firebase
-import com.tom_roush.pdfbox.pdmodel.PDDocument
-import com.tom_roush.pdfbox.text.PDFTextStripper
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileInputStream
 import java.io.FileOutputStream
-import java.io.IOException
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withTimeout
+import okhttp3.*
+import org.json.JSONObject
+import java.util.concurrent.TimeUnit
 
 class HomeFragment : Fragment() {
     private var _binding: FragmentHomeBinding? = null
@@ -59,9 +57,9 @@ class HomeFragment : Fragment() {
     private var currentUserId: String? = null
     private var currentCvText: String = ""
     private var pendingJobTitle: String? = null
+    private var pendingCvText: String? = null
     private var pendingFileUri: Uri? = null
     private var currentFileName: String? = null
-    private lateinit var loadingDialog: AlertDialog
 
     private val filePicker =
         registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
@@ -73,7 +71,10 @@ class HomeFragment : Fragment() {
                     currentCvText = extractTextFromPdf(currentFileUri!!).toString()
                     val jobTitle =
                         binding.etJobTitle.text.toString().takeIf { it.isNotBlank() } ?: return@let
-                    saveKeywordsWithNlp(currentCvText, jobTitle)
+                    if (!jobTitle.isNullOrBlank()) {
+                        pendingCvText = currentCvText
+                        pendingJobTitle = jobTitle
+                    }
                 } catch (e: Exception) {
                     Toast.makeText(
                         context,
@@ -84,31 +85,80 @@ class HomeFragment : Fragment() {
             }
         }
 
-    private fun saveKeywordsWithNlp(cvText: String, jobTitle: String) {
-        val userId = FirebaseAuth.getInstance().currentUser?.uid ?: return
-        val extracted = extractKeywordsWithNlp(cvText).toMutableList()
+    private suspend fun extractKeywordsWithNlp(text: String): List<String> =
+        withContext(Dispatchers.IO) {
+            try {
+                val url = "https://api.textrazor.com"
+                val requestBody = FormBody.Builder()
+                    .add("text", text)
+                    .add("extractors", "entities,topics")
+                    .build()
 
-        if (!extracted.contains(jobTitle)) {
-            extracted.add(0, jobTitle)
+                val request = Request.Builder()
+                    .url(url)
+                    .addHeader(
+                        "x-textrazor-key",
+                        "0460e2960deb10a3c369095a89616e34f85eadffe12513501e2a8bd9"
+                    )
+                    .post(requestBody)
+                    .build()
+
+                val client = OkHttpClient.Builder()
+                    .connectTimeout(15, TimeUnit.SECONDS)
+                    .writeTimeout(15, TimeUnit.SECONDS)
+                    .readTimeout(30, TimeUnit.SECONDS)
+                    .build()
+
+                val response = client.newCall(request).execute()
+                if (!response.isSuccessful || response.body == null) return@withContext emptyList()
+                val json = JSONObject(response.body!!.string())
+                val keywords = mutableSetOf<String>()
+                val entityArray = json.getJSONObject("response").optJSONArray("entities")
+                for (i in 0 until (entityArray?.length() ?: 0)) {
+                    val entity = entityArray!!.getJSONObject(i)
+                    val entityName = entity.optString("entityId")
+                    if (!entityName.isNullOrBlank()) {
+                        keywords.add(entityName)
+                    }
+                }
+                val topicArray = json.getJSONObject("response").optJSONArray("topics")
+                for (i in 0 until (topicArray?.length() ?: 0)) {
+                    val topic = topicArray!!.getJSONObject(i).optString("label")
+                    if (!topic.isNullOrBlank()) {
+                        keywords.add(topic)
+                    }
+                }
+                return@withContext keywords.shuffled().take(5)
+            } catch (e: Exception) {
+                Log.e("TextRazor", "Keyword extraction failed: ${e.message}")
+                return@withContext emptyList()
+            }
         }
 
-        val keywordData = mapOf(
-            "keywords" to extracted,
-            "jobTitle" to jobTitle,
-            "timestamp" to FieldValue.serverTimestamp()
-        )
-
-        Firebase.firestore.collection("users")
-            .document(userId)
-            .collection("keywords")
-            .document("fromCv")
-            .set(keywordData)
-            .addOnSuccessListener {
-                Log.d("Keywords", "Saved keywords to Firestore")
+    private fun saveKeywordsWithNlp(cvText: String, jobTitle: String) {
+        val userId = FirebaseAuth.getInstance().currentUser?.uid ?: return
+        lifecycleScope.launch {
+            val extracted = extractKeywordsWithNlp(cvText).toMutableList()
+            if (!extracted.contains(jobTitle)) {
+                extracted.add(0, jobTitle)
             }
-            .addOnFailureListener {
-                Log.e("Keywords", "Failed to save keywords", it)
-            }
+            val keywordData = mapOf(
+                "keywords" to extracted,
+                "jobTitle" to jobTitle,
+                "timestamp" to FieldValue.serverTimestamp()
+            )
+            FirebaseFirestore.getInstance().collection("users")
+                .document(userId)
+                .collection("keywords")
+                .document("fromCv")
+                .set(keywordData)
+                .addOnSuccessListener {
+                    Log.d("Keywords", "Saved keywords to Firestore")
+                }
+                .addOnFailureListener {
+                    Log.e("Keywords", "Failed to save keywords", it)
+                }
+        }
     }
 
     private fun getFileName(uri: Uri): String {
@@ -135,9 +185,7 @@ class HomeFragment : Fragment() {
                             pendingJobTitle = null
                         }
                     }
-
                     enableCvUi()
-
                 } catch (e: ApiException) {
                     Toast.makeText(
                         context,
@@ -170,60 +218,47 @@ class HomeFragment : Fragment() {
         database = FirebaseDatabase.getInstance()
         auth = FirebaseAuth.getInstance()
         currentUserId = auth.currentUser?.uid
-
         val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
             .requestEmail()
             .requestScopes(Scope(DriveScopes.DRIVE_FILE))
             .build()
         googleSignInClient = GoogleSignIn.getClient(requireActivity(), gso)
-
-        // Require Firebase login
         if (currentUserId == null) {
             Toast.makeText(context, "User not logged in", Toast.LENGTH_SHORT).show()
             return
         }
-
         val account = GoogleSignIn.getLastSignedInAccount(requireContext())
         if (account == null) {
-            // Not signed into Google yet – disable UI and launch login
             binding.btnUpload.isEnabled = false
             binding.btnSave.isEnabled = false
             googleSignInLauncher.launch(googleSignInClient.signInIntent)
         } else {
-            // Already signed in – enable UI
+            checkExistingCv()
             enableCvUi()
-            checkDriveFileExists()
         }
-
         binding.btnUpload.setOnClickListener {
             filePicker.launch("application/pdf")
         }
-
         binding.btnSave.setOnClickListener {
             val jobTitle = binding.etJobTitle.text.toString()
             if (jobTitle.isBlank()) {
                 binding.tilJobTitle.error = "Job title is required"
                 return@setOnClickListener
             }
-
             currentFileUri?.let { uri ->
-                // 1) remember what we're about to upload
                 pendingFileUri = uri
                 pendingJobTitle = jobTitle
                 val account = GoogleSignIn.getLastSignedInAccount(requireContext())
                 if (account != null) {
                     uploadCvToDrive(account, uri, jobTitle)
                 } else {
-                    // disable UI so they don’t spam clicks
                     binding.btnUpload.isEnabled = false
                     binding.btnSave.isEnabled = false
-                    // launch the OAuth flow
                     googleSignInLauncher.launch(googleSignInClient.signInIntent)
                 }
             } ?: Toast.makeText(context, "Please upload a CV first", Toast.LENGTH_SHORT).show()
         }
     }
-
 
     private fun checkExistingCv() {
         database.reference.child("users/$currentUserId/cv").get().addOnSuccessListener { snapshot ->
@@ -233,17 +268,19 @@ class HomeFragment : Fragment() {
                 binding.etJobTitle.setText(jobTitle ?: "")
                 binding.tvFileName.text = cvTitle ?: "No CV uploaded"
                 val fileId = snapshot.child("fileId").getValue(String::class.java)
-                if (fileId != null) checkDriveFileExists()
+                if (!fileId.isNullOrBlank()) {
+                    checkDriveFileExists()
+                }
             }
         }.addOnFailureListener {
             Toast.makeText(context, "Failed to load CV data", Toast.LENGTH_SHORT).show()
         }
     }
 
+
     private fun checkDriveFileExists() {
         val account = GoogleSignIn.getLastSignedInAccount(requireContext()) ?: return
         val userId = FirebaseAuth.getInstance().currentUser?.uid ?: return
-
         lifecycleScope.launch {
             try {
                 val credential = GoogleAccountCredential.usingOAuth2(
@@ -277,7 +314,11 @@ class HomeFragment : Fragment() {
                         .setFields("files(id, name)")
                         .execute()
                 }
-                val file = result.files.firstOrNull() ?: return@launch
+                val file = result.files.firstOrNull()
+                if (file == null) {
+                    Toast.makeText(context, "CV file not found in Drive", Toast.LENGTH_SHORT).show()
+                    return@launch
+                }
                 val outputFile =
                     File.createTempFile("cv_preview", ".pdf", requireContext().cacheDir)
                 withContext(Dispatchers.IO) {
@@ -295,6 +336,7 @@ class HomeFragment : Fragment() {
 
             } catch (e: Exception) {
                 Log.e("DriveCheck", "Error loading CV: ${e.message}", e)
+                Toast.makeText(context, "Failed to load CV from Drive", Toast.LENGTH_SHORT).show()
             }
         }
     }
@@ -322,7 +364,6 @@ class HomeFragment : Fragment() {
         binding.buttonViewMyApplications.setOnClickListener {
             findNavController().navigate(R.id.action_home_to_viewMyApplicationsFragment)
         }
-
         try {
             context?.grantUriPermission(
                 context?.packageName,
@@ -351,7 +392,6 @@ class HomeFragment : Fragment() {
                 ).apply {
                     selectedAccount = account.account
                 }
-
                 val drive = Drive.Builder(
                     NetHttpTransport(),
                     GsonFactory.getDefaultInstance(),
@@ -362,12 +402,10 @@ class HomeFragment : Fragment() {
 
                 val db = Firebase.firestore
                 val userId = FirebaseAuth.getInstance().currentUser?.uid ?: return@launch
-
                 val cvDocRef = db.collection("users")
                     .document(userId)
                     .collection("uploadedCVs")
                     .document("currentCv")
-
                 val existingDoc = cvDocRef.get().await()
                 existingDoc.getString("driveFileId")?.let { oldFileId ->
                     if (oldFileId.isNotEmpty()) {
@@ -406,7 +444,7 @@ class HomeFragment : Fragment() {
                     "timestamp" to FieldValue.serverTimestamp()
                 )
                 cvDocRef.set(newCvData).await()
-                Log.d("Firestore", "CV metadata saved/replaced")
+                pendingCvText?.let { saveKeywordsWithNlp(it, jobTitle) }
                 withContext(Dispatchers.Main) {
                     showLoading(false)
                     Toast.makeText(
@@ -427,7 +465,6 @@ class HomeFragment : Fragment() {
             }
         }
     }
-
 
     private fun extractTextFromPdf(uri: Uri): String? {
         return try {
@@ -453,20 +490,10 @@ class HomeFragment : Fragment() {
         }
     }
 
-    private fun extractKeywordsWithNlp(text: String): List<String> {
-        return text.split(" ").filter { it.length > 3 }.shuffled().take(5)
-    }
-
     private fun showLoading(show: Boolean) {
         binding.progressBar.visibility = if (show) View.VISIBLE else View.GONE
         binding.btnUpload.isEnabled = !show
         binding.btnSave.isEnabled = !show
-    }
-
-    private fun resetForm() {
-        binding.pdfView.visibility = View.GONE
-        binding.btnSave.visibility = View.GONE
-        checkExistingCv()
     }
 
     override fun onDestroyView() {
