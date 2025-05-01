@@ -6,7 +6,7 @@
         android:title="Dashboard" />
     <item
         android:id="@+id/navigation_search"
-        android:icon="@drawable/ic_launcher_background"
+        android:icon="@drawable/ic_search"
         android:title="Search" />
     <item
         android:id="@+id/navigation_chat"
