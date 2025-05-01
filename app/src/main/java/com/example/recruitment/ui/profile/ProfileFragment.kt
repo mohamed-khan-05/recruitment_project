@@ -14,6 +14,9 @@ import android.widget.Toast
 import androidx.fragment.app.Fragment
 import com.example.recruitment.LoginActivity
 import com.example.recruitment.R
+import com.google.android.gms.auth.api.signin.GoogleSignIn
+import com.google.android.gms.auth.api.signin.GoogleSignInClient
+import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.example.recruitment.databinding.FragmentProfileBinding
 import com.google.firebase.auth.EmailAuthProvider
 import com.google.firebase.auth.FirebaseAuth
@@ -39,10 +42,17 @@ class ProfileFragment : Fragment() {
         binding.textEmail.text = currentUser.email
         fetchUserFullName()
 
+        val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
+            .requestEmail()
+            .build()
+        val googleSignInClient = GoogleSignIn.getClient(requireActivity(), gso)
+
         binding.buttonLogout.setOnClickListener {
             FirebaseAuth.getInstance().signOut()
-            startActivity(Intent(activity, LoginActivity::class.java))
-            activity?.finish()
+            googleSignInClient.revokeAccess().addOnCompleteListener {
+                startActivity(Intent(activity, LoginActivity::class.java))
+                activity?.finish()
+            }
         }
 
         val submitButton: Button = binding.buttonSubmit

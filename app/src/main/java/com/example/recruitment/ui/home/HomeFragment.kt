@@ -1,6 +1,7 @@
 package com.example.recruitment.ui.home
 
 import android.app.Activity
+import androidx.appcompat.app.AlertDialog
 import android.util.Log
 import com.itextpdf.kernel.pdf.PdfReader
 import com.itextpdf.kernel.pdf.PdfDocument
@@ -60,6 +61,7 @@ class HomeFragment : Fragment() {
     private var pendingJobTitle: String? = null
     private var pendingFileUri: Uri? = null
     private var currentFileName: String? = null
+    private lateinit var loadingDialog: AlertDialog
 
     private val filePicker =
         registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
@@ -133,6 +135,9 @@ class HomeFragment : Fragment() {
                             pendingJobTitle = null
                         }
                     }
+
+                    enableCvUi()
+
                 } catch (e: ApiException) {
                     Toast.makeText(
                         context,
@@ -157,18 +162,7 @@ class HomeFragment : Fragment() {
     private fun enableCvUi() {
         binding.btnUpload.isEnabled = true
         binding.btnSave.isEnabled = true
-        // and re-check any existing CV metadata if needed:
         checkDriveFileExists()
-    }
-
-    override fun onResume() {
-        super.onResume()
-        val account = GoogleSignIn.getLastSignedInAccount(requireContext())
-        if (account == null) {
-            binding.btnUpload.isEnabled = false
-            binding.btnSave.isEnabled = false
-            googleSignInLauncher.launch(googleSignInClient.signInIntent)
-        }
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
