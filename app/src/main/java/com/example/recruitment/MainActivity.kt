@@ -33,8 +33,6 @@ class MainActivity : AppCompatActivity() {
         } else {
             binding = ActivityMainBinding.inflate(layoutInflater)
             setContentView(binding.root)
-
-            // 🔔 Ask for POST_NOTIFICATIONS if needed (Android 13+)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 if (ContextCompat.checkSelfPermission(
                         this,
@@ -48,8 +46,6 @@ class MainActivity : AppCompatActivity() {
                     )
                 }
             }
-
-            // 🔔 Start notification listener
             notificationHelper = NotificationHelper(this)
             currentUser.uid.let { notificationHelper.startListening(it) }
 
