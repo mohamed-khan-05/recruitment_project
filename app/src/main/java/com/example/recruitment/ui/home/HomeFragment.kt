@@ -47,6 +47,14 @@ import okhttp3.*
 import org.json.JSONObject
 import java.util.concurrent.TimeUnit
 import kotlin.coroutines.cancellation.CancellationException
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.appcompat.app.AlertDialog
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
+import com.google.android.gms.auth.api.signin.GoogleSignIn
+import com.google.android.gms.auth.api.signin.GoogleSignInClient
+import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 
 class HomeFragment : Fragment() {
     private var _binding: FragmentHomeBinding? = null
@@ -61,6 +69,10 @@ class HomeFragment : Fragment() {
     private var pendingCvText: String? = null
     private var pendingFileUri: Uri? = null
     private var currentFileName: String? = null
+    private val REQUEST_CODE_PERMISSIONS = 1234
+    private var signInRetryCount = 0
+    private val MAX_RETRY_COUNT = 3
+    private var shouldRetrySignIn = false
 
     private val filePicker =
         registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
@@ -195,7 +207,16 @@ class HomeFragment : Fragment() {
                     ).show()
                 }
             } else {
-                Toast.makeText(context, "Google sign-in cancelled", Toast.LENGTH_SHORT).show()
+                signInRetryCount++
+                if (signInRetryCount < MAX_RETRY_COUNT) {
+                    shouldRetrySignIn = true
+                } else {
+                    Toast.makeText(
+                        context,
+                        "Sign-in attempts exceeded. Please try again later.",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
             }
         }
 
@@ -216,6 +237,50 @@ class HomeFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+
+        if (ContextCompat.checkSelfPermission(
+                requireContext(),
+                Manifest.permission.READ_EXTERNAL_STORAGE
+            ) != PackageManager.PERMISSION_GRANTED ||
+            ContextCompat.checkSelfPermission(
+                requireContext(),
+                Manifest.permission.POST_NOTIFICATIONS
+            ) != PackageManager.PERMISSION_GRANTED
+        ) {
+
+            if (ActivityCompat.shouldShowRequestPermissionRationale(
+                    requireActivity(),
+                    Manifest.permission.READ_EXTERNAL_STORAGE
+                ) ||
+                ActivityCompat.shouldShowRequestPermissionRationale(
+                    requireActivity(),
+                    Manifest.permission.POST_NOTIFICATIONS
+                )
+            ) {
+                AlertDialog.Builder(requireContext())
+                    .setMessage("We need access to your storage and notifications to allow you to upload and save your CV.")
+                    .setPositiveButton("OK") { _, _ ->
+                        requestPermissions(
+                            arrayOf(
+                                Manifest.permission.READ_EXTERNAL_STORAGE,
+                                Manifest.permission.POST_NOTIFICATIONS
+                            ),
+                            REQUEST_CODE_PERMISSIONS
+                        )
+                    }
+                    .setNegativeButton("Cancel", null)
+                    .show()
+            } else {
+                requestPermissions(
+                    arrayOf(
+                        Manifest.permission.READ_EXTERNAL_STORAGE,
+                        Manifest.permission.POST_NOTIFICATIONS
+                    ),
+                    REQUEST_CODE_PERMISSIONS
+                )
+            }
+        }
+
         database = FirebaseDatabase.getInstance()
         auth = FirebaseAuth.getInstance()
         currentUserId = auth.currentUser?.uid
@@ -232,7 +297,9 @@ class HomeFragment : Fragment() {
         if (account == null) {
             binding.btnUpload.isEnabled = false
             binding.btnSave.isEnabled = false
-            googleSignInLauncher.launch(googleSignInClient.signInIntent)
+            if (!shouldRetrySignIn) {
+                googleSignInLauncher.launch(googleSignInClient.signInIntent)
+            }
         } else {
             checkExistingCv()
             enableCvUi()
@@ -255,7 +322,9 @@ class HomeFragment : Fragment() {
                 } else {
                     binding.btnUpload.isEnabled = false
                     binding.btnSave.isEnabled = false
-                    googleSignInLauncher.launch(googleSignInClient.signInIntent)
+                    if (!shouldRetrySignIn) {
+                        googleSignInLauncher.launch(googleSignInClient.signInIntent)
+                    }
                 }
             } ?: Toast.makeText(context, "Please upload a CV first", Toast.LENGTH_SHORT).show()
         }
@@ -466,6 +535,7 @@ class HomeFragment : Fragment() {
                         "CV uploaded successfully with ID: ${uploadedFile.id}",
                         Toast.LENGTH_SHORT
                     ).show()
+                    binding.btnSave.isEnabled = true
                 }
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
