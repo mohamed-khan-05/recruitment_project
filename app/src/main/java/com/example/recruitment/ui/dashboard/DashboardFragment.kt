@@ -41,19 +41,13 @@ class DashboardFragment : Fragment() {
         viewModel.totalApplications.observe(viewLifecycleOwner) { count ->
             binding.tvTotalApplications.text = count.toString()
         }
-        binding.cardApplicants.setOnClickListener {
-            findNavController().navigate(R.id.action_dashboard_to_applicationViewsFragment)
-        }
-        binding.cardApplications.setOnClickListener {
-            // Optional: navigate to a new screen or show something
-        }
     }
 
     private fun showCreateJobDialog() {
         val dialog = CreateJobDialogFragment()
         dialog.jobCreatedListener = object : OnJobCreatedListener {
             override fun onJobCreated() {
-                viewModel.fetchTotalApplications() // 🔁 Refresh count after job is created
+                viewModel.fetchTotalApplications()
             }
         }
         dialog.show(parentFragmentManager, "CreateJobDialogFragment")

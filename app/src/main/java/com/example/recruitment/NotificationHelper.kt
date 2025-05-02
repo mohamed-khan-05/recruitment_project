@@ -7,7 +7,6 @@ import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import com.google.firebase.firestore.*
-import com.example.recruitment.R
 
 class NotificationHelper(private val context: Context) {
     private val db = FirebaseFirestore.getInstance()

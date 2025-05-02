@@ -30,19 +30,14 @@ class PushNotificationService : FirebaseMessagingService() {
     override fun onMessageReceived(remoteMessage: RemoteMessage) {
         super.onMessageReceived(remoteMessage)
         remoteMessage.notification?.let { notif ->
-
-            // 1️⃣ On Android 13+, check if POST_NOTIFICATIONS was granted :contentReference[oaicite:2]{index=2}
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 val permission = Manifest.permission.POST_NOTIFICATIONS
                 if (ContextCompat.checkSelfPermission(this, permission)
                     != PackageManager.PERMISSION_GRANTED
                 ) {
-                    // Permission not granted — skip showing the notification or handle gracefully
                     return
                 }
             }
-
-            // 2️⃣ Build and dispatch the notification
             try {
                 val notification = NotificationCompat.Builder(this, CHANNEL_ID)
                     .setSmallIcon(R.drawable.ic_notification)
@@ -50,12 +45,10 @@ class PushNotificationService : FirebaseMessagingService() {
                     .setContentText(notif.body)
                     .setAutoCancel(true)
                     .build()
-
                 NotificationManagerCompat.from(this)
                     .notify(System.currentTimeMillis().toInt(), notification)
 
             } catch (secEx: SecurityException) {
-                // 3️⃣ As a safety net, handle cases where permissions were revoked at runtime :contentReference[oaicite:3]{index=3}
                 secEx.printStackTrace()
             }
         }

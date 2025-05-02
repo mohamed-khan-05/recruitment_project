@@ -27,13 +27,10 @@ public class ChatPageFragment extends Fragment {
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
         binding = FragmentChatPageBinding.inflate(inflater, container, false);
-
         chatId = getArguments().getString("chatId", "");
         otherUserEmail = getArguments().getString("employerEmail", "");
-
         db = FirebaseFirestore.getInstance();
         adapter = new MessageAdapter(messagesList);
-
         binding.recyclerChatMessages.setLayoutManager(new LinearLayoutManager(getContext()));
         binding.recyclerChatMessages.setAdapter(adapter);
 
@@ -47,7 +44,6 @@ public class ChatPageFragment extends Fragment {
                 binding.messageInput.setText("");
             }
         });
-
         return binding.getRoot();
     }
 
@@ -57,9 +53,11 @@ public class ChatPageFragment extends Fragment {
 
         db.collection("conversations")
                 .document(chatId)
-                .update(FieldPath.of("unreadMessagesCount", currentUser), 0);
+                .update(
+                        FieldPath.of("unreadMessagesCount", currentUser),
+                        0
+                );
     }
-
 
     private void fetchMessages() {
         messagesListener = db.collection("conversations")
@@ -68,7 +66,6 @@ public class ChatPageFragment extends Fragment {
                 .orderBy("timestamp", Query.Direction.ASCENDING)
                 .addSnapshotListener((snapshot, e) -> {
                     if (snapshot == null || e != null) return;
-
                     messagesList.clear();
                     for (DocumentSnapshot doc : snapshot.getDocuments()) {
                         String sender = doc.getString("senderEmail");
@@ -88,57 +85,58 @@ public class ChatPageFragment extends Fragment {
     private void sendMessage(String messageText) {
         String senderEmail = FirebaseAuth.getInstance().getCurrentUser().getEmail();
         if (senderEmail == null || chatId.isEmpty() || otherUserEmail.isEmpty()) return;
-
         long now = System.currentTimeMillis();
         Message newMessage = new Message(senderEmail, messageText, now, "sent");
-
         db.collection("conversations")
                 .document(chatId)
                 .collection("messages")
                 .add(newMessage)
                 .addOnSuccessListener(ref -> {
-                    updateConversationMetadata(messageText, now);
+                    updateLastMessageMetadata(messageText, now);
                     sendNotificationToRecipient(otherUserEmail, messageText, now);
                 });
+    }
+
+    private void updateLastMessageMetadata(String messageText, long timestamp) {
+        db.collection("conversations")
+                .document(chatId)
+                .update(
+                        "lastMessage", messageText,
+                        "lastTimestamp", timestamp
+                );
     }
 
     private void sendNotificationToRecipient(String recipientEmail, String messageText, long timestamp) {
         db.collection("users")
                 .whereEqualTo("email", recipientEmail)
                 .get()
-                .addOnSuccessListener(queryDocumentSnapshots -> {
-                    if (!queryDocumentSnapshots.isEmpty()) {
-                        DocumentSnapshot recipientDoc = queryDocumentSnapshots.getDocuments().get(0);
-                        String recipientId = recipientDoc.getId();
-
-                        String activeChatId = recipientDoc.contains("activeChatId") ? recipientDoc.getString("activeChatId") : null;
-                        if (chatId.equals(activeChatId)) {
-                            return;
-                        }
-
-                        Map<String, Object> notification = new HashMap<>();
-                        notification.put("title", "New Message");
-                        notification.put("message", messageText);
-                        notification.put("type", "message");
-                        notification.put("timestamp", timestamp);
-                        notification.put("read", false);
-
-                        db.collection("users")
-                                .document(recipientId)
-                                .collection("notifications")
-                                .add(notification);
+                .addOnSuccessListener(querySnapshot -> {
+                    if (querySnapshot.isEmpty()) return;
+                    DocumentSnapshot recipientDoc = querySnapshot.getDocuments().get(0);
+                    String recipientId = recipientDoc.getId();
+                    String activeChatId = recipientDoc.contains("activeChatId")
+                            ? recipientDoc.getString("activeChatId")
+                            : null;
+                    if (chatId.equals(activeChatId)) {
+                        return;
                     }
+                    Map<String, Object> notification = new HashMap<>();
+                    notification.put("title", "New Message");
+                    notification.put("message", messageText);
+                    notification.put("type", "message");
+                    notification.put("timestamp", timestamp);
+                    notification.put("read", false);
+                    db.collection("users")
+                            .document(recipientId)
+                            .collection("notifications")
+                            .add(notification);
+                    db.collection("conversations")
+                            .document(chatId)
+                            .update(
+                                    FieldPath.of("unreadMessagesCount", recipientEmail),
+                                    FieldValue.increment(1)
+                            );
                 });
-    }
-
-    private void updateConversationMetadata(String messageText, long timestamp) {
-        db.collection("conversations")
-                .document(chatId)
-                .update(
-                        FieldPath.of("lastMessage"), messageText,
-                        FieldPath.of("lastTimestamp"), timestamp,
-                        FieldPath.of("unreadMessagesCount", otherUserEmail), FieldValue.increment(1)
-                );
     }
 
     @Override
@@ -146,5 +144,28 @@ public class ChatPageFragment extends Fragment {
         super.onDestroyView();
         if (messagesListener != null) messagesListener.remove();
         binding = null;
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        String currentUid = FirebaseAuth.getInstance().getCurrentUser().getUid();
+        if (!chatId.isEmpty()) {
+            db.collection("users")
+                    .document(currentUid)
+                    .update("activeChatId", chatId);
+            markChatAsRead();
+        }
+    }
+
+    @Override
+    public void onPause() {
+        super.onPause();
+        String currentUid = FirebaseAuth.getInstance().getCurrentUser().getUid();
+        if (!chatId.isEmpty()) {
+            db.collection("users")
+                    .document(currentUid)
+                    .update("activeChatId", FieldValue.delete());
+        }
     }
 }

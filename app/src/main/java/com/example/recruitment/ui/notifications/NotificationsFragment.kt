@@ -83,6 +83,10 @@ class NotificationsFragment : Fragment() {
                     notifications.clear()
                     for (doc in snap.documents) {
                         doc.toObject(NotificationData::class.java)
+                            ?.takeIf {
+                                it.type == "application_accepted"
+                                        || it.type == "application_rejected"
+                            }
                             ?.copy(id = doc.id)
                             ?.let { notifications.add(it) }
                     }
@@ -94,6 +98,7 @@ class NotificationsFragment : Fragment() {
                 }
         }
     }
+
 
     private fun toggleEmptyView() {
         val empty = notifications.isEmpty()

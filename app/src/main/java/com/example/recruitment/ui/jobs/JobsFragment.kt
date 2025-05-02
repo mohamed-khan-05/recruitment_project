@@ -62,30 +62,23 @@ class JobsFragment : Fragment() {
                 createOrNavigateToChat(job, bundle)
             }
         )
-
         binding.recyclerJobs.layoutManager = LinearLayoutManager(requireContext())
         binding.recyclerJobs.adapter = adapter
-
         binding.etSearch.addTextChangedListener {
             currentSearchQuery = it.toString().trim()
             if (currentSearchQuery.isEmpty()) loadSuggestedJobs() else loadSearchedJobs(reset = true)
         }
-
         binding.btnFilter.setOnClickListener {
             JobFilterDialogFragment
                 .newInstance(selectedWorkArrangement, selectedJobType)
                 .show(parentFragmentManager, "job_filter")
         }
-
         parentFragmentManager.setFragmentResultListener(
             "job_filter_result",
             viewLifecycleOwner
         ) { _, bundle ->
-            // 1. Read back the selected filters
             selectedWorkArrangement = bundle.getString("workArrangement")
             selectedJobType = bundle.getString("jobType")
-
-            // 2. Re-load with or without a search query
             if (currentSearchQuery.isEmpty()) {
                 loadSuggestedJobs()
             } else {
@@ -184,14 +177,12 @@ class JobsFragment : Fragment() {
     }
 
     private fun loadSearchedJobs(reset: Boolean) {
-        // Reset or increment the displayed count
         displayedSearchedCount = if (reset) {
             10
         } else {
             displayedSearchedCount + 10
         }
 
-        // Lowercase search query once
         val queryLower = currentSearchQuery.trim().lowercase()
 
         db.collection("jobs")
@@ -204,14 +195,10 @@ class JobsFragment : Fragment() {
                         val description = doc.getString("description") ?: ""
                         val experienceLevel = doc.getString("experienceLevel") ?: ""
                         val workArrangement = doc.getString("workArrangement") ?: ""
-
-                        // Check search match (case-insensitive)
                         val matchesSearch = title.lowercase().contains(queryLower)
                                 || description.lowercase().contains(queryLower)
                                 || experienceLevel.lowercase().contains(queryLower)
                                 || workArrangement.lowercase().contains(queryLower)
-
-                        // Check filters (case-insensitive equality)
                         val matchesWork =
                             selectedWorkArrangement?.equals(workArrangement, ignoreCase = true)
                                 ?: true
@@ -232,12 +219,8 @@ class JobsFragment : Fragment() {
                         } else null
                     }
                 }
-
-                // Take the portion to display and submit to adapter
                 val toDisplay = allSearchedJobs.take(displayedSearchedCount)
                 adapter.submitList(toDisplay)
-
-                // Enable or disable "Load More" button
                 val canLoadMore = displayedSearchedCount < allSearchedJobs.size
                 binding.btnLoadMore.isEnabled = canLoadMore
                 binding.btnLoadMore.alpha = if (canLoadMore) 1f else 0.5f
