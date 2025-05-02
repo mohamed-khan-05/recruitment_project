@@ -6,6 +6,7 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.navigation.findNavController
@@ -25,6 +26,7 @@ class EmployerActivity : AppCompatActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO)
         super.onCreate(savedInstanceState)
         val currentUser = FirebaseAuth.getInstance().currentUser
         if (currentUser == null) {
@@ -32,11 +34,8 @@ class EmployerActivity : AppCompatActivity() {
             finish()
             return
         }
-
         binding = ActivityEmployerBinding.inflate(layoutInflater)
         setContentView(binding.root)
-
-        // ✅ Ask for notification permission (Android 13+)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             if (ContextCompat.checkSelfPermission(
                     this,
@@ -50,8 +49,6 @@ class EmployerActivity : AppCompatActivity() {
                 )
             }
         }
-
-        // ✅ Start listening for notifications
         notificationHelper = NotificationHelper(this)
         notificationHelper.startListening(currentUser.uid)
 

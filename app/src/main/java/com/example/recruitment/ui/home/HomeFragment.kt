@@ -230,6 +230,13 @@ class HomeFragment : Fragment() {
     }
 
     private fun enableCvUi() {
+        val account = GoogleSignIn.getLastSignedInAccount(requireContext())
+
+        if (account == null || !account.grantedScopes.contains(Scope(DriveScopes.DRIVE_FILE))) {
+            Log.w("DriveScope", "DRIVE_FILE scope NOT granted. Requesting sign-in again.")
+            googleSignInLauncher.launch(googleSignInClient.signInIntent)
+            return
+        }
         binding.btnUpload.isEnabled = true
         binding.btnSave.isEnabled = true
         checkDriveFileExists()
