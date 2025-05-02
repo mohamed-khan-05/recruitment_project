@@ -50,9 +50,11 @@ class NotificationHelper(private val context: Context) {
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .setAutoCancel(true)
             .build()
-
-        NotificationManagerCompat.from(context)
-            .notify(id.hashCode(), notification)
+        try {
+            NotificationManagerCompat.from(context).notify(id.hashCode(), notification)
+        } catch (e: SecurityException) {
+            e.printStackTrace()
+        }
     }
 
     private fun createNotificationChannelIfNeeded() {

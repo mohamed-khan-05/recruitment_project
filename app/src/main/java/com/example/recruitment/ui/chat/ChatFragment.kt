@@ -43,7 +43,6 @@ class ChatFragment : Fragment() {
         binding!!.recyclerChatList.layoutManager = LinearLayoutManager(context)
         binding!!.recyclerChatList.adapter = adapter
 
-        // Fetch conversations from Firestore
         fetchConversations()
 
         return binding!!.root

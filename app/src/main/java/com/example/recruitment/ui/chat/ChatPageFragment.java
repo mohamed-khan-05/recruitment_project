@@ -96,7 +96,39 @@ public class ChatPageFragment extends Fragment {
                 .document(chatId)
                 .collection("messages")
                 .add(newMessage)
-                .addOnSuccessListener(ref -> updateConversationMetadata(messageText, now));
+                .addOnSuccessListener(ref -> {
+                    updateConversationMetadata(messageText, now);
+                    sendNotificationToRecipient(otherUserEmail, messageText, now);
+                });
+    }
+
+    private void sendNotificationToRecipient(String recipientEmail, String messageText, long timestamp) {
+        db.collection("users")
+                .whereEqualTo("email", recipientEmail)
+                .get()
+                .addOnSuccessListener(queryDocumentSnapshots -> {
+                    if (!queryDocumentSnapshots.isEmpty()) {
+                        DocumentSnapshot recipientDoc = queryDocumentSnapshots.getDocuments().get(0);
+                        String recipientId = recipientDoc.getId();
+
+                        String activeChatId = recipientDoc.contains("activeChatId") ? recipientDoc.getString("activeChatId") : null;
+                        if (chatId.equals(activeChatId)) {
+                            return;
+                        }
+
+                        Map<String, Object> notification = new HashMap<>();
+                        notification.put("title", "New Message");
+                        notification.put("message", messageText);
+                        notification.put("type", "message");
+                        notification.put("timestamp", timestamp);
+                        notification.put("read", false);
+
+                        db.collection("users")
+                                .document(recipientId)
+                                .collection("notifications")
+                                .add(notification);
+                    }
+                });
     }
 
     private void updateConversationMetadata(String messageText, long timestamp) {

@@ -39,7 +39,6 @@ class ConversationAdapter(
             binding.tvTime.text = SimpleDateFormat("hh:mm a", Locale.getDefault())
                 .format(Date(conversation.lastTimestamp ?: 0L))
 
-            // Handle unread count display
             val unreadCount = conversation.unreadMessagesCount?.get(currentUser) ?: 0
             if (unreadCount > 0) {
                 binding.tvUnreadCount.visibility = View.VISIBLE
