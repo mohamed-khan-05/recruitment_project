@@ -46,6 +46,7 @@ import kotlinx.coroutines.withTimeout
 import okhttp3.*
 import org.json.JSONObject
 import java.util.concurrent.TimeUnit
+import kotlin.coroutines.cancellation.CancellationException
 
 class HomeFragment : Fragment() {
     private var _binding: FragmentHomeBinding? = null
@@ -281,7 +282,7 @@ class HomeFragment : Fragment() {
     private fun checkDriveFileExists() {
         val account = GoogleSignIn.getLastSignedInAccount(requireContext()) ?: return
         val userId = FirebaseAuth.getInstance().currentUser?.uid ?: return
-        lifecycleScope.launch {
+        viewLifecycleOwner.lifecycleScope.launch {
             try {
                 val credential = GoogleAccountCredential.usingOAuth2(
                     requireContext(), listOf(DriveScopes.DRIVE_FILE)
@@ -305,7 +306,9 @@ class HomeFragment : Fragment() {
                 val document = snapshot.documents[0]
                 val fileName = document.getString("fileName") ?: return@launch
                 val jobTitle = document.getString("jobTitle") ?: ""
-                binding.etJobTitle.setText(jobTitle)
+                if (isAdded) binding.etJobTitle.setText(jobTitle)
+                else return@launch
+
                 val query = "name = '${fileName.replace("'", "\\'")}' and trashed = false"
                 val result = withContext(Dispatchers.IO) {
                     drive.files().list()
@@ -316,7 +319,13 @@ class HomeFragment : Fragment() {
                 }
                 val file = result.files.firstOrNull()
                 if (file == null) {
-                    Toast.makeText(context, "CV file not found in Drive", Toast.LENGTH_SHORT).show()
+                    context?.let {
+                        Toast.makeText(
+                            it,
+                            "CV file not found in Drive",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    }
                     return@launch
                 }
                 val outputFile =
@@ -330,13 +339,18 @@ class HomeFragment : Fragment() {
                     "${requireContext().packageName}.fileprovider",
                     outputFile
                 )
-                currentFileUri = uri
-                currentFileName = file.name
-                showPreview(uri)
+                if (isAdded) {
+                    currentFileUri = uri
+                    currentFileName = file.name
+                    showPreview(uri)
+                }
 
             } catch (e: Exception) {
-                Log.e("DriveCheck", "Error loading CV: ${e.message}", e)
-                Toast.makeText(context, "Failed to load CV from Drive", Toast.LENGTH_SHORT).show()
+                if (e is CancellationException) throw e
+                Log.e("DriveCheck", "Error loading CV", e)
+                context?.let {
+                    Toast.makeText(it, "Failed to load CV from Drive", Toast.LENGTH_SHORT).show()
+                }
             }
         }
     }

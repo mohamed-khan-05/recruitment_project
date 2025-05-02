@@ -22,7 +22,6 @@ import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.ktx.Firebase
 import androidx.appcompat.app.AlertDialog
 
-
 class EmployerSearchFragment : Fragment() {
     private var _binding: FragmentSearchBinding? = null
     private val binding get() = _binding!!
@@ -44,31 +43,21 @@ class EmployerSearchFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-
-        // Initialize the adapter with both onClick and onChatClick handlers
         adapter = StudentAdapter(
-            onStudentClick = { student -> openStudentCV(student) },  // Opens the student profile
-            onChatClick = { student -> startChat(student) }               // Opens the chat with the student
+            onStudentClick = { student -> openStudentCV(student) },
+            onChatClick = { student -> startChat(student) }
         )
-
-        // Set the layout manager and adapter for the RecyclerView
         binding.recyclerStudents.layoutManager = LinearLayoutManager(requireContext())
         binding.recyclerStudents.adapter = adapter
-
-        // Load more students when the Load More button is clicked
         binding.btnLoadMoreStudents.setOnClickListener {
             loadStudents(reset = false)
         }
-
-        // Handle search query changes
         binding.etStudentSearch.addTextChangedListener { editable ->
             searchQuery = editable.toString().trim().lowercase()
-
-            // If search query is not empty, load students
             if (searchQuery.isNotEmpty()) {
                 loadStudents(reset = true)
             } else {
-                // If search query is empty, reset the list and state
+
                 adapter.submitList(emptyList())
                 allMatchedStudents.clear()
                 displayedCount = 0
@@ -76,8 +65,6 @@ class EmployerSearchFragment : Fragment() {
                 setLoadMoreVisible(false)
             }
         }
-
-        // Initial load when the fragment is first created
         if (searchQuery.isNotEmpty()) {
             loadStudents(reset = true)
         }
@@ -86,13 +73,13 @@ class EmployerSearchFragment : Fragment() {
     private fun openStudentCV(student: Student) {
         val db = Firebase.firestore
         val userRef =
-            db.collection("users").document(student.uid) // Assuming Student object has an id field
+            db.collection("users").document(student.uid)
         userRef.collection("uploadedCVs").document("currentCv").get()
             .addOnSuccessListener { documentSnapshot ->
                 if (documentSnapshot.exists()) {
                     val driveFileId = documentSnapshot.getString("driveFileId")
                     if (driveFileId != null) {
-                        // Proceed to generate the link and ask to open in browser
+
                         askToOpenInBrowser(driveFileId)
                     } else {
                         Toast.makeText(context, "CV file not found", Toast.LENGTH_SHORT).show()
@@ -107,10 +94,7 @@ class EmployerSearchFragment : Fragment() {
     }
 
     private fun askToOpenInBrowser(driveFileId: String) {
-        // Construct the Google Drive URL to view the file
         val fileUrl = "https://drive.google.com/file/d/$driveFileId/view?usp=sharing"
-
-        // Prompt the user to confirm if they want to open the file in the browser
         val builder = AlertDialog.Builder(requireContext())
             .setTitle("Open CV")
             .setMessage("Do you want to open this CV in your browser?")
@@ -216,25 +200,21 @@ class EmployerSearchFragment : Fragment() {
             putString("studentId", student.uid)
         }
 
-        // Check if a conversation with this student already exists
         db.collection("conversations")
             .whereArrayContains("participants", employerEmail)
             .get()
             .addOnSuccessListener { snapshot ->
-                // Find the existing conversation with the student
                 val existing = snapshot.documents.firstOrNull { doc ->
                     val participants = doc.get("participants") as? List<*>
                     participants?.contains(student.email) == true
                 }
-
                 Log.d("EmployerSearch", "Navigating to chat with ID: ${bundle.getString("chatId")}")
-
                 if (existing != null) {
-                    // If a conversation exists, navigate to it
+
                     bundle.putString("chatId", existing.id)
                     findNavController().navigate(R.id.action_employerSearch_to_chat, bundle)
                 } else {
-                    // If no conversation exists, create a new one
+
                     val newConversationData = mapOf(
                         "participants" to listOf(employerEmail, student.email),
                         "lastTimestamp" to System.currentTimeMillis(),
@@ -244,12 +224,10 @@ class EmployerSearchFragment : Fragment() {
                             student.email to 0
                         )
                     )
-
-                    // Create the new conversation document
                     db.collection("conversations")
                         .add(newConversationData)
                         .addOnSuccessListener { newDoc ->
-                            // After creating the conversation, navigate to the new chat
+
                             bundle.putString("chatId", newDoc.id)
                             findNavController().navigate(R.id.action_employerSearch_to_chat, bundle)
                         }

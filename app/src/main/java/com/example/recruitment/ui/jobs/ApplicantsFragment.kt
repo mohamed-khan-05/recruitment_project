@@ -154,7 +154,7 @@ class ApplicantsFragment : Fragment() {
     private fun startChat(applicant: Applicant) {
         val email = FirebaseAuth.getInstance().currentUser?.email ?: return
         val bundle = Bundle().apply {
-            putString("applicantEmail", applicant.email)
+            putString("employerEmail", applicant.email)
             putString("applicantId", applicant.applicationId)
         }
         db.collection("conversations").whereArrayContains("participants", email).get()
