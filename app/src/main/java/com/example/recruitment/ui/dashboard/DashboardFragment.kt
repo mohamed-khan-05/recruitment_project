@@ -1,5 +1,6 @@
 package com.example.recruitment.ui.dashboard
 
+import android.Manifest
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
@@ -15,7 +16,8 @@ import com.example.recruitment.ui.dialogs.OnJobCreatedListener
 class DashboardFragment : Fragment() {
     private var _binding: FragmentDashboardBinding? = null
     private val binding get() = _binding!!
-    private val viewModel: DashboardViewModel by activityViewModels() // ✅ shared ViewModel
+    private val viewModel: DashboardViewModel by activityViewModels()
+    private val REQUEST_CODE_PERMISSIONS = 1234
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -28,6 +30,14 @@ class DashboardFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+
+        requestPermissions(
+            arrayOf(
+                Manifest.permission.READ_EXTERNAL_STORAGE,
+                Manifest.permission.POST_NOTIFICATIONS
+            ),
+            REQUEST_CODE_PERMISSIONS
+        )
 
         binding.buttonViewMyJobs.setOnClickListener {
             findNavController().navigate(R.id.action_navigation_dashboard_to_myJobsFragment)
