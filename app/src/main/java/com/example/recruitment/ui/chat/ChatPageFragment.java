@@ -33,6 +33,7 @@ public class ChatPageFragment extends Fragment {
         adapter = new MessageAdapter(messagesList);
         binding.recyclerChatMessages.setLayoutManager(new LinearLayoutManager(getContext()));
         binding.recyclerChatMessages.setAdapter(adapter);
+        binding.textReceiverEmail.setText(otherUserEmail);
 
         markChatAsRead();
         fetchMessages();

@@ -13,6 +13,7 @@ import androidx.core.view.WindowInsetsCompat
 import com.example.recruitment.databinding.ActivityLoginBinding
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
+import java.util.Locale
 
 class LoginActivity : AppCompatActivity() {
     private lateinit var binding: ActivityLoginBinding
@@ -90,8 +91,13 @@ class LoginActivity : AppCompatActivity() {
         }
         auth = FirebaseAuth.getInstance()
         binding.buttonLogin.setOnClickListener {
-            val email = binding.editTextEmail.text.toString().trim()
+            val email = binding.editTextEmail
+                .text
+                .toString()
+                .trim()
+                .lowercase(Locale.getDefault())
             val password = binding.editTextPassword.text.toString().trim()
+            Log.d("LoginActivity", "Normalized email: $email")
 
             if (email.isEmpty() || password.isEmpty()) {
                 Toast.makeText(this, "Please enter email and password", Toast.LENGTH_SHORT).show()

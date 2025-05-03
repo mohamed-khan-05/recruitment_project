@@ -196,7 +196,7 @@ class EmployerSearchFragment : Fragment() {
     private fun startChat(student: Student) {
         val employerEmail = currentUser?.email ?: return
         val bundle = Bundle().apply {
-            putString("studentEmail", student.email)
+            putString("employerEmail", student.email)
             putString("studentId", student.uid)
         }
 

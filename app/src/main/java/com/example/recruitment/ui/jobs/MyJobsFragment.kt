@@ -58,17 +58,15 @@ class MyJobsFragment : Fragment() {
         binding.cbOpen.setOnCheckedChangeListener { _, _ -> loadJobs() }
         binding.cbClosed.setOnCheckedChangeListener { _, _ -> loadJobs() }
 
-        loadJobs()  // initial load
+        loadJobs()
     }
 
     private fun loadJobs() {
         val email = auth.currentUser?.email ?: return
-
         val statuses = mutableListOf<String>().apply {
             if (binding.cbOpen.isChecked) add("open")
             if (binding.cbClosed.isChecked) add("closed")
         }
-
         if (statuses.isEmpty()) {
             adapter.submitList(emptyList())
             Toast.makeText(
@@ -78,19 +76,16 @@ class MyJobsFragment : Fragment() {
             ).show()
             return
         }
-
         var query = db.collection("jobs")
             .whereEqualTo("employerEmail", email)
-
         query = if (statuses.size == 1) {
             query.whereEqualTo("status", statuses[0])
         } else {
             query.whereIn("status", statuses)
         }
-
         query.get()
             .addOnSuccessListener { result ->
-                val jobs = result.map { doc ->
+                val rawJobs = result.map { doc ->
                     val title = doc.getString("title").orEmpty()
                     val description = doc.getString("description").orEmpty()
                     val experienceLevel = doc.getString("experienceLevel").orEmpty()
@@ -106,10 +101,30 @@ class MyJobsFragment : Fragment() {
                         timestamp
                     )
                 }
-                if (jobs.isEmpty()) {
+                if (rawJobs.isEmpty()) {
                     Toast.makeText(requireContext(), "No jobs found", Toast.LENGTH_SHORT).show()
+                    adapter.submitList(emptyList())
+                    return@addOnSuccessListener
                 }
-                adapter.submitList(jobs)
+                val jobsWithPending = mutableListOf<Pair<String, List<Any>>>()
+                var processed = 0
+
+                rawJobs.forEach { (jobId, dataList) ->
+                    db.collection("applications")
+                        .whereEqualTo("jobId", jobId)
+                        .whereEqualTo("status", "pending")
+                        .get()
+                        .addOnSuccessListener { pendingSnap ->
+                            val pendingCount = pendingSnap.size()
+                            jobsWithPending.add(jobId to (dataList + pendingCount))
+                        }
+                        .addOnCompleteListener {
+                            processed++
+                            if (processed == rawJobs.size) {
+                                adapter.submitList(jobsWithPending)
+                            }
+                        }
+                }
             }
             .addOnFailureListener {
                 Toast.makeText(

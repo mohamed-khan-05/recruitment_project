@@ -1,5 +1,6 @@
 package com.example.recruitment.ui.jobs
 
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -9,14 +10,15 @@ import android.widget.TextView
 import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.RecyclerView
 import com.example.recruitment.R
+import com.google.firebase.firestore.FirebaseFirestore
 
 class MyJobsAdapter(
-    // 1) Added missing comma after onDeleteClicked
     private val onJobClick: (String, String, String, String, String, Long) -> Unit,
     private val onDeleteClicked: (String) -> Unit,
-    private val onViewApplicantsClicked: (String) -> Unit   // 2) Declared the new callback
+    private val onViewApplicantsClicked: (String) -> Unit
 ) : RecyclerView.Adapter<MyJobsAdapter.JobViewHolder>() {
     private val jobs = mutableListOf<Pair<String, List<Any>>>()
+    private val db = FirebaseFirestore.getInstance()
 
     fun submitList(newJobs: List<Pair<String, List<Any>>>) {
         jobs.clear()
@@ -42,6 +44,20 @@ class MyJobsAdapter(
         val timestamp = jobData[5] as Long
 
         holder.title.text = title
+        holder.textPending.text = "Pending: 0"
+
+        db.collection("jobs")
+            .document(jobId)
+            .collection("applications")
+            .whereEqualTo("status", "pending")
+            .get()
+            .addOnSuccessListener { snap ->
+                holder.textPending.text = "Pending: ${snap.size()}"
+            }
+            .addOnFailureListener {
+                holder.textPending.text = "Pending: error"
+                Log.e("MyJobsAdapter", "failed to fetch pending for $jobId", it)
+            }
 
         val bgColorRes = if (status == "closed")
             R.color.job_closed_bg
@@ -67,6 +83,7 @@ class MyJobsAdapter(
         val title: TextView = itemView.findViewById(R.id.jobTitle)
         val deleteButton: ImageButton = itemView.findViewById(R.id.deleteButton)
         val viewApplicantsButton: Button =
-            itemView.findViewById(R.id.viewApplicantsButton)  // ← wire up this view
+            itemView.findViewById(R.id.viewApplicantsButton)
+        val textPending: TextView = itemView.findViewById(R.id.textPending)
     }
 }

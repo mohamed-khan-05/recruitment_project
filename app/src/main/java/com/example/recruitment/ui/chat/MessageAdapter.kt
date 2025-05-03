@@ -8,6 +8,7 @@ import com.example.recruitment.databinding.ItemMessageSentBinding
 import com.example.recruitment.databinding.ItemMessageReceivedBinding
 import com.example.recruitment.model.Message
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
 
 class MessageAdapter(private val messages: List<Message>) :
     RecyclerView.Adapter<RecyclerView.ViewHolder>() {
@@ -42,8 +43,6 @@ class MessageAdapter(private val messages: List<Message>) :
 
     override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
         val message = messages[position]
-        Log.d(TAG, "Binding message: ${message.message} from ${message.senderEmail}")
-
         if (holder is SentMessageViewHolder) {
             holder.bind(message)
         } else if (holder is ReceivedMessageViewHolder) {
@@ -63,9 +62,26 @@ class MessageAdapter(private val messages: List<Message>) :
 
     inner class ReceivedMessageViewHolder(private val binding: ItemMessageReceivedBinding) :
         RecyclerView.ViewHolder(binding.root) {
+        private val db = FirebaseFirestore.getInstance()
         fun bind(message: Message) {
             binding.tvMessage.text = message.message
-            binding.tvSender.text = message.senderEmail
+            binding.tvSender.text = "…"
+            db.collection("users")
+                .whereEqualTo("email", message.senderEmail)
+                .limit(1)
+                .get()
+                .addOnSuccessListener { snapshots ->
+                    if (!snapshots.isEmpty) {
+                        val fullName = snapshots.documents[0].getString("fullName")
+                        binding.tvSender.text = fullName ?: message.senderEmail
+                    } else {
+                        binding.tvSender.text = message.senderEmail
+                    }
+                }
+                .addOnFailureListener {
+                    binding.tvSender.text = message.senderEmail
+                    Log.e(TAG, "Failed to load sender name", it)
+                }
         }
     }
 }

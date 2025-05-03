@@ -6,7 +6,6 @@
     android:layout_height="match_parent"
     tools:context=".ui.chat.ChatPageFragment">
 
-    <!-- Messages List (RecyclerView) -->
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/recycler_chat_messages"
         android:layout_width="0dp"
@@ -18,7 +17,6 @@
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintBottom_toTopOf="@+id/input_container" />
 
-    <!-- Input Area -->
     <LinearLayout
         android:id="@+id/input_container"
         android:layout_width="0dp"
@@ -31,16 +29,6 @@
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent">
 
-        <!-- Emoji Button -->
-        <ImageButton
-            android:id="@+id/emoji_button"
-            android:layout_width="48dp"
-            android:layout_height="48dp"
-            android:background="?android:attr/selectableItemBackground"
-            android:contentDescription="Emoji Button"
-            android:src="@drawable/ic_emoji" />
-
-        <!-- Message Input Field -->
         <EditText
             android:id="@+id/message_input"
             android:layout_width="0dp"
@@ -51,7 +39,6 @@
             android:hint="Type a message"
             android:padding="10dp" />
 
-        <!-- Send Button -->
         <ImageButton
             android:id="@+id/send_button"
             android:layout_width="48dp"
@@ -60,5 +47,16 @@
             android:contentDescription="Send Button"
             android:src="@drawable/ic_send" />
     </LinearLayout>
+
+    <TextView
+        android:id="@+id/textReceiverEmail"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="16dp"
+        android:layout_marginTop="8dp"
+        android:text="..."
+        android:textStyle="bold"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>
