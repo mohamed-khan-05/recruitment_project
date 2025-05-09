@@ -1,6 +1,10 @@
 package com.example.recruitment.ui.jobs
 
 import android.app.AlertDialog
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.ViewGroup
 import android.widget.TextView
@@ -50,8 +54,67 @@ class ApplicantsAdapter(
             btnAccept.setOnClickListener { showConfirmationDialog(context, "accept", applicant) }
             btnReject.setOnClickListener { showConfirmationDialog(context, "reject", applicant) }
             btnChat.setOnClickListener { onChatClick(applicant) }
+
+            root.setOnClickListener {
+                openApplicantCV(context, applicant)
+            }
         }
     }
+
+    private fun openApplicantCV(context: Context, applicant: Applicant) {
+        FirebaseFirestore.getInstance()
+            .collection("users")
+            .whereEqualTo("email", applicant.email)
+            .limit(1)
+            .get()
+            .addOnSuccessListener { qs ->
+                val doc = qs.documents.firstOrNull()
+                if (doc == null) {
+                    Toast.makeText(context, "User not found", Toast.LENGTH_SHORT).show()
+                    return@addOnSuccessListener
+                }
+                val uid = doc.id
+                FirebaseFirestore.getInstance()
+                    .collection("users").document(uid)
+                    .collection("uploadedCVs").document("currentCv")
+                    .get()
+                    .addOnSuccessListener { snap ->
+                        val driveFileId = snap.getString("driveFileId")
+                        if (driveFileId.isNullOrEmpty()) {
+                            Toast.makeText(context, "No CV uploaded", Toast.LENGTH_SHORT).show()
+                        } else {
+                            askToOpenInBrowser(context, driveFileId)
+                        }
+                    }
+                    .addOnFailureListener { e ->
+                        Log.e("ApplicantsAdapter", "CV lookup failed", e)
+                        Toast.makeText(context, "Error fetching CV", Toast.LENGTH_SHORT).show()
+                    }
+            }
+            .addOnFailureListener { e ->
+                Log.e("ApplicantsAdapter", "User lookup failed", e)
+                Toast.makeText(context, "Error finding user", Toast.LENGTH_SHORT).show()
+            }
+    }
+
+    private fun askToOpenInBrowser(context: Context, driveFileId: String) {
+        val fileUrl = "https://drive.google.com/file/d/$driveFileId/view?usp=sharing"
+        AlertDialog.Builder(context)
+            .setTitle("Open CV")
+            .setMessage("Do you want to open this CV in your browser?")
+            .setPositiveButton("Yes") { _, _ ->
+                openInBrowser(context, fileUrl)
+            }
+            .setNegativeButton("No", null)
+            .show()
+    }
+
+    private fun openInBrowser(context: Context, fileUrl: String) {
+        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(fileUrl))
+        intent.flags = Intent.FLAG_ACTIVITY_NO_HISTORY or Intent.FLAG_ACTIVITY_NEW_TASK
+        context.startActivity(intent)
+    }
+
 
     private fun showConfirmationDialog(
         context: android.content.Context,
@@ -67,6 +130,7 @@ class ApplicantsAdapter(
             .show()
     }
 
+
     private fun updateStatus(
         applicant: Applicant,
         newStatus: String,
@@ -78,28 +142,23 @@ class ApplicantsAdapter(
             .collection("applications")
             .document(applicant.applicationId)
 
-        // 1️⃣ Update application status
         appRef.update(
             mapOf(
                 "status" to newStatus,
                 "decisionAt" to decisionTime
             )
         ).addOnSuccessListener {
-            // 2️⃣ Fetch the job document to get its title
             db.collection("jobs")
                 .document(jobId)
                 .get()
                 .addOnSuccessListener { jobSnapshot ->
                     val jobTitle = jobSnapshot.getString("title") ?: "your application"
-
-                    // 3️⃣ Query user by email
                     db.collection("users")
                         .whereEqualTo("email", applicant.email)
                         .get()
                         .addOnSuccessListener { querySnapshot ->
                             querySnapshot.documents.forEach { userDoc ->
                                 val userId = userDoc.id
-                                // 4️⃣ Build and add notification with jobTitle
                                 val notification = mapOf(
                                     "title" to if (newStatus == "accepted") "Application Accepted" else "Application Rejected",
                                     "message" to "Your application for \"$jobTitle\" was $newStatus.",
@@ -112,7 +171,6 @@ class ApplicantsAdapter(
                                     .collection("notifications")
                                     .add(notification)
                             }
-                            // 5️⃣ Refresh UI
                             Toast.makeText(context, "Applicant $newStatus", Toast.LENGTH_SHORT)
                                 .show()
                             applicants.remove(applicant)

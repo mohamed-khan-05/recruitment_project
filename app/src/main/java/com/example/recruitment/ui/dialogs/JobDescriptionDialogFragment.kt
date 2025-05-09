@@ -10,7 +10,6 @@ import java.text.SimpleDateFormat
 import java.util.*
 
 class JobDescriptionDialogFragment : DialogFragment() {
-
     private var _binding: FragmentJobDescriptionDialogBinding? = null
     private val binding get() = _binding!!
 

@@ -1,7 +1,6 @@
 package com.example.recruitment.ui.dialogs
 
 import android.os.Bundle
-import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -10,7 +9,6 @@ import android.widget.Button
 import android.widget.Spinner
 import androidx.core.os.bundleOf
 import androidx.fragment.app.DialogFragment
-import androidx.fragment.app.setFragmentResult
 import com.example.recruitment.R
 
 class JobFilterDialogFragment : DialogFragment() {
@@ -37,7 +35,6 @@ class JobFilterDialogFragment : DialogFragment() {
         inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?
     ): View = inflater.inflate(R.layout.dialog_job_filter, container, false)
 
-    // In JobFilterDialogFragment.kt
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         val workSpinner = view.findViewById<Spinner>(R.id.spinner_work)
         val typeSpinner = view.findViewById<Spinner>(R.id.spinner_type)
@@ -55,7 +52,6 @@ class JobFilterDialogFragment : DialogFragment() {
             jobTypes
         )
 
-        // Restore previous selections, case-insensitive
         arguments?.getString(ARG_CURRENT_WORK)?.let { current ->
             workOptions.indexOfFirst { it.equals(current, ignoreCase = true) }
                 .takeIf { it >= 0 }
@@ -74,8 +70,6 @@ class JobFilterDialogFragment : DialogFragment() {
             val selectedType = jobTypes
                 .getOrNull(typeSpinner.selectedItemPosition)
                 .takeIf { typeSpinner.selectedItemPosition != 0 }
-
-            // Send result through parentFragmentManager
             parentFragmentManager.setFragmentResult(
                 "job_filter_result",
                 bundleOf(
@@ -91,7 +85,6 @@ class JobFilterDialogFragment : DialogFragment() {
             typeSpinner.setSelection(0)
         }
     }
-
 
     override fun onStart() {
         super.onStart()

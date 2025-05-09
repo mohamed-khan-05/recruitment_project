@@ -7,8 +7,8 @@ import com.example.recruitment.databinding.ItemStudentBinding
 import com.example.recruitment.model.Student
 
 class StudentAdapter(
-    private val onStudentClick: (Student) -> Unit,  // for root click (e.g., open student profile)
-    private val onChatClick: (Student) -> Unit      // for chat button click
+    private val onStudentClick: (Student) -> Unit,
+    private val onChatClick: (Student) -> Unit
 ) : RecyclerView.Adapter<StudentAdapter.StudentViewHolder>() {
 
     private val students = mutableListOf<Student>()
@@ -20,15 +20,11 @@ class StudentAdapter(
             binding.tvStudentName.text = student.fullName
             binding.tvStudentEmail.text = student.email
             binding.tvJobTitle.text = student.jobTitle.ifEmpty { "N/A" }
-
-            // Handle the root item click (e.g., open the student profile page)
             binding.root.setOnClickListener {
-                onStudentClick(student)  // This is the regular item click
+                onStudentClick(student)
             }
-
-            // Handle chat button click (open chat with the student)
             binding.btnChat.setOnClickListener {
-                onChatClick(student)  // This triggers the chat functionality
+                onChatClick(student)
             }
         }
     }

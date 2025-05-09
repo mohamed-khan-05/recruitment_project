@@ -174,6 +174,7 @@ class HomeFragment : Fragment() {
         }
     }
 
+
     private fun getFileName(uri: Uri): String {
         var name = "cv.pdf"
         context?.contentResolver?.query(uri, null, null, null, null)?.use { cursor ->
@@ -353,7 +354,6 @@ class HomeFragment : Fragment() {
             Toast.makeText(context, "Failed to load CV data", Toast.LENGTH_SHORT).show()
         }
     }
-
 
     private fun checkDriveFileExists() {
         val account = GoogleSignIn.getLastSignedInAccount(requireContext()) ?: return

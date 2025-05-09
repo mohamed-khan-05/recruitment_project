@@ -24,7 +24,6 @@ class ApplicationViewsFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         // TODO: Load and display application views data
-        // Example: binding.tvNoData.text = "Your applications has been viewed X times"
     }
 
     override fun onDestroyView() {

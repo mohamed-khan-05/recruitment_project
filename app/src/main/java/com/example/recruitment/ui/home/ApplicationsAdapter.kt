@@ -32,7 +32,6 @@ class ApplicationsAdapter(
         holder.binding.tvCompanyName.text = application.companyName
         holder.binding.tvStatus.text = application.status.capitalize()
 
-        // Color config (KEEPING YOUR ORIGINAL COLORS)
         when (application.status.lowercase()) {
             "pending" -> {
                 holder.binding.tvStatus.setBackgroundColor(Color.parseColor("#FFF59D")) // light yellow
@@ -55,7 +54,6 @@ class ApplicationsAdapter(
             }
         }
 
-        // Withdraw click logic only if status is pending
         holder.itemView.setOnClickListener {
             if (application.status.lowercase() != "pending") {
                 Toast.makeText(
@@ -74,11 +72,10 @@ class ApplicationsAdapter(
                         FirebaseAuth.getInstance().currentUser?.email ?: return@setPositiveButton
                     val db = FirebaseFirestore.getInstance()
 
-                    // Correct reference to the job document
                     val jobRef = db.collection("jobs")
-                        .document(application.jobId) // Correctly reference the job document by its ID
+                        .document(application.jobId)
                     val appsCollection =
-                        jobRef.collection("applications") // Reference to the applications subcollection
+                        jobRef.collection("applications")
 
                     appsCollection
                         .whereEqualTo("email", currentUserEmail)
@@ -86,8 +83,7 @@ class ApplicationsAdapter(
                         .addOnSuccessListener { snapshot ->
                             val doc = snapshot.documents.firstOrNull()
                             if (doc != null) {
-                                // Valid document found, proceed with withdrawal
-                                appsCollection.document(doc.id) // Reference to the specific application document
+                                appsCollection.document(doc.id)
                                     .delete()
                                     .addOnSuccessListener {
                                         Toast.makeText(

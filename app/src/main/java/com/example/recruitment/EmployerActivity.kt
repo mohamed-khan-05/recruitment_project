@@ -89,7 +89,6 @@ class EmployerActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
-        // ✅ Stop listening for notifications
         notificationHelper.stopListening()
     }
 

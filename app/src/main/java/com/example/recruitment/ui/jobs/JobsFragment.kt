@@ -176,6 +176,7 @@ class JobsFragment : Fragment() {
             .addOnFailureListener { e -> Log.e("JobsFragment", e.message ?: "") }
     }
 
+
     private fun loadSearchedJobs(reset: Boolean) {
         displayedSearchedCount = if (reset) {
             10

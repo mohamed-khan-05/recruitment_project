@@ -9,12 +9,10 @@ exports.onNewNotification = functions
     const { title, message, type } = snap.data();
     const userId = ctx.params.userId;
 
-    // 1️⃣ Grab that user’s current FCM token
     const userDoc = await admin.firestore().doc(`users/${userId}`).get();
     const token   = userDoc.get('fcmToken');
     if (!token) return null;
 
-    // 2️⃣ Send them a push
     return admin.messaging().send({
       token,
       notification: { title, body: message },

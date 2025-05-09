@@ -67,7 +67,6 @@ class MyJobsAdapter(
         holder.itemView.setBackgroundColor(
             ContextCompat.getColor(holder.itemView.context, bgColorRes)
         )
-
         holder.itemView.setOnClickListener {
             onJobClick(jobId, title, description, experienceLevel, workArrangement, timestamp)
         }

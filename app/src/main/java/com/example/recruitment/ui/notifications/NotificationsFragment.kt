@@ -36,12 +36,10 @@ class NotificationsFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
 
         adapter = NotificationAdapter(notifications) { nd, pos ->
-            // show confirmation dialog
             AlertDialog.Builder(requireContext())
                 .setTitle("Delete notification")
                 .setMessage("Are you sure you want to delete this notification?")
                 .setPositiveButton("Delete") { _, _ ->
-                    // user confirmed: delete from Firestore
                     currentUid?.let { uid ->
                         db.collection("users")
                             .document(uid)

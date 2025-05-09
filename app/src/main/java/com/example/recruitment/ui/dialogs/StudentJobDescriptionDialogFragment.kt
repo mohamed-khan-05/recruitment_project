@@ -13,7 +13,6 @@ import android.app.AlertDialog
 import android.widget.Toast
 import com.example.recruitment.model.ApplicationData
 import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 
 class StudentJobDescriptionDialogFragment : DialogFragment() {

@@ -83,6 +83,7 @@ public class ChatPageFragment extends Fragment {
                 });
     }
 
+
     private void sendMessage(String messageText) {
         String senderEmail = FirebaseAuth.getInstance().getCurrentUser().getEmail();
         if (senderEmail == null || chatId.isEmpty() || otherUserEmail.isEmpty()) return;

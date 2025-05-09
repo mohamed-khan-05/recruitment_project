@@ -21,7 +21,6 @@ class NotificationAdapter(
         private val fmt = SimpleDateFormat("dd MMM yyyy, HH:mm", Locale.getDefault())
 
         fun bind(nd: NotificationData, position: Int) {
-            // bind text + background
             binding.tvTitle.text = nd.title
             binding.tvMessage.text = nd.message
             binding.tvTimestamp.text = fmt.format(Date(nd.timestamp * 1000))
@@ -29,8 +28,6 @@ class NotificationAdapter(
             binding.cardNotification.setCardBackgroundColor(
                 ContextCompat.getColor(binding.root.context, bg)
             )
-
-            // delete click
             binding.btnDelete.setOnClickListener {
                 onDelete(nd, position)
             }

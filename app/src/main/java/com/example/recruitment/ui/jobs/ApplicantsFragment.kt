@@ -1,4 +1,3 @@
-// ApplicantsFragment.kt
 package com.example.recruitment.ui.jobs
 
 import android.os.Bundle

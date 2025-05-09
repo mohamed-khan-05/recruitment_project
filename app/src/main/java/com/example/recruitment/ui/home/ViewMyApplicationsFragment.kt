@@ -4,7 +4,6 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.CompoundButton
 import androidx.fragment.app.Fragment
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.example.recruitment.databinding.FragmentViewMyApplicationsBinding
@@ -19,8 +18,6 @@ class ViewMyApplicationsFragment : Fragment() {
 
     private val db = FirebaseFirestore.getInstance()
     private val currentEmail = FirebaseAuth.getInstance().currentUser?.email
-
-    // raw list and filtered list
     private val allApplications = mutableListOf<ApplicationData>()
     private val visibleApplications = mutableListOf<ApplicationData>()
 
@@ -41,7 +38,6 @@ class ViewMyApplicationsFragment : Fragment() {
         binding.recyclerViewApplications.layoutManager = LinearLayoutManager(requireContext())
         binding.recyclerViewApplications.adapter = adapter
 
-        // set up checkbox listeners
         listOf(
             binding.cbPending,
             binding.cbAccepted,
@@ -114,14 +110,12 @@ class ViewMyApplicationsFragment : Fragment() {
     }
 
     private fun applyFilter() {
-        // gather which statuses are checked
         val selectedStatuses = mutableSetOf<String>().apply {
             if (binding.cbPending.isChecked) add("pending")
             if (binding.cbAccepted.isChecked) add("accepted")
             if (binding.cbRejected.isChecked) add("rejected")
         }
 
-        // rebuild visibleApplications
         visibleApplications.clear()
         visibleApplications.addAll(
             allApplications.filter { it.status in selectedStatuses }

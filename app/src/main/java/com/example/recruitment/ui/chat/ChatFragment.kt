@@ -63,7 +63,7 @@ class ChatFragment : Fragment() {
                     for (doc in it.documents) {
                         val conversation = doc.toObject(Conversation::class.java)
                         if (conversation != null) {
-                            conversation.id = doc.id  // Make sure to capture document ID
+                            conversation.id = doc.id
                             conversationsList.add(conversation)
                         } else {
                             Log.w("ChatFragment", "Conversation is null for doc ID: ${doc.id}")
