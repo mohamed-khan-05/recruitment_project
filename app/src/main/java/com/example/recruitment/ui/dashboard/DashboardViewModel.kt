@@ -14,6 +14,9 @@ class DashboardViewModel : ViewModel() {
     private val _totalApplications = MutableLiveData<Int>()
     val totalApplications: LiveData<Int> get() = _totalApplications
 
+    private val _engagement = MutableLiveData<Int>()
+    val engagement: LiveData<Int> get() = _engagement
+
     init {
         fetchTotApplicants()
         fetchTotalApplications()
@@ -79,6 +82,7 @@ class DashboardViewModel : ViewModel() {
                 .get()
                 .addOnSuccessListener { querySnapshot ->
                     _totalApplications.value = querySnapshot.size()
+                    userEngagement()
                 }
                 .addOnFailureListener { exception ->
                     Log.e("DashboardViewModel", "Error fetching applications: ", exception)
@@ -86,6 +90,66 @@ class DashboardViewModel : ViewModel() {
         } else {
             Log.e("DashboardViewModel", "User is not logged in.")
         }
+    }
+
+    private fun userEngagement() {
+        val currentUserEmail = FirebaseAuth.getInstance().currentUser?.email ?: return
+        val db = FirebaseFirestore.getInstance()
+
+        db.collection("jobs")
+            .whereEqualTo("employerEmail", currentUserEmail)
+            .whereEqualTo("status", "open")
+            .get()
+            .addOnSuccessListener { jobsSnapshot ->
+                if (jobsSnapshot.isEmpty) {
+                    _engagement.value = 0
+                    return@addOnSuccessListener
+                }
+
+                var totalViews = 0
+                var jobsProcessed = 0
+
+                jobsSnapshot.documents.forEach { jobDoc ->
+                    val jobId = jobDoc.id
+
+                    db.collection("Views")
+                        .document(jobId)
+                        .collection("Users")
+                        .get()
+                        .addOnSuccessListener { viewsSnapshot ->
+                            totalViews += viewsSnapshot.size()
+                            jobsProcessed++
+
+                            if (jobsProcessed == jobsSnapshot.size()) {
+                                val totalApps = _totalApplications.value ?: 0
+                                _engagement.value = if (totalViews > 0) {
+                                    (totalApps * 100) / totalViews
+                                } else {
+                                    0
+                                }
+                                Log.d(
+                                    "DashboardViewModel",
+                                    "Engagement calculated: ${_engagement.value}%"
+                                )
+                            }
+                        }
+                        .addOnFailureListener { e ->
+                            jobsProcessed++
+                            if (jobsProcessed == jobsSnapshot.size()) {
+                                val totalApps = _totalApplications.value ?: 0
+                                _engagement.value = if (totalViews > 0) {
+                                    (totalApps * 100) / totalViews
+                                } else {
+                                    0
+                                }
+                            }
+                            Log.e("DashboardViewModel", "Error getting views: ", e)
+                        }
+                }
+            }
+            .addOnFailureListener { e ->
+                Log.e("DashboardViewModel", "Error fetching employer jobs: ", e)
+            }
     }
 
     fun refreshData() {

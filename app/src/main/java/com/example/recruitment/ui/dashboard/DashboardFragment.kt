@@ -51,6 +51,11 @@ class DashboardFragment : Fragment() {
         viewModel.totalApplications.observe(viewLifecycleOwner) { count ->
             binding.tvTotalApplications.text = count.toString()
         }
+
+        viewModel.engagement.observe(viewLifecycleOwner) { engagement ->
+            binding.tvEngagement.text = "$engagement%"
+        }
+
     }
 
     private fun showCreateJobDialog() {

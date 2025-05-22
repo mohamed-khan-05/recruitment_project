@@ -45,6 +45,7 @@ class JobsFragment : Fragment() {
 
         adapter = StudentJobsAdapter(
             onJobClick = { job ->
+                ViewedJob(job)
                 StudentJobDescriptionDialogFragment.newInstance(
                     job.id,
                     job.title,
@@ -101,6 +102,36 @@ class JobsFragment : Fragment() {
         fetchUserKeywords()
     }
 
+    private fun ViewedJob(job: Job) {
+        val currentUserEmail = FirebaseAuth.getInstance().currentUser?.email ?: return
+
+        val db = FirebaseFirestore.getInstance()
+        val userDocRef = db.collection("Views")
+            .document(job.id)
+            .collection("Users")
+            .document(currentUserEmail)
+
+        userDocRef.get()
+            .addOnSuccessListener { document ->
+                if (!document.exists()) {
+                    userDocRef.set(emptyMap<String, Any>())
+                        .addOnSuccessListener {
+                            Log.d(
+                                "ViewedJob",
+                                "User $currentUserEmail added to job ${job.id} views"
+                            )
+                        }
+                        .addOnFailureListener { e ->
+                            Log.e("ViewedJob", "Error adding view", e)
+                        }
+                } else {
+                    Log.d("ViewedJob", "User $currentUserEmail already viewed job ${job.id}")
+                }
+            }
+            .addOnFailureListener { e ->
+                Log.e("ViewedJob", "Error checking if view exists", e)
+            }
+    }
 
     private fun createOrNavigateToChat(job: Job, bundle: Bundle) {
         val currentUserEmail = FirebaseAuth.getInstance().currentUser?.email ?: return
@@ -176,7 +207,6 @@ class JobsFragment : Fragment() {
             .addOnFailureListener { e -> Log.e("JobsFragment", e.message ?: "") }
     }
 
-
     private fun loadSearchedJobs(reset: Boolean) {
         displayedSearchedCount = if (reset) {
             10
@@ -230,7 +260,6 @@ class JobsFragment : Fragment() {
                 Log.e("JobsFragment", e.message ?: "Error loading searched jobs")
             }
     }
-
 
     override fun onDestroyView() {
         super.onDestroyView()
