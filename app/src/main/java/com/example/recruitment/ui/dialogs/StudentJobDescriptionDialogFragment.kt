@@ -12,6 +12,7 @@ import java.util.*
 import android.app.AlertDialog
 import android.widget.Toast
 import com.example.recruitment.model.ApplicationData
+import com.example.recruitment.ui.chat.ChatPageFragment
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 
@@ -148,14 +149,69 @@ class StudentJobDescriptionDialogFragment : DialogFragment() {
                                                     toastMsg,
                                                     Toast.LENGTH_SHORT
                                                 ).show()
+
+                                                if (!isApplied) {
+                                                    // Send notification to employer on new application
+                                                    jobRef.get()
+                                                        .addOnSuccessListener { jobSnapshot ->
+                                                            val employerEmail =
+                                                                jobSnapshot.getString("employerEmail")
+                                                            val jobTitle =
+                                                                jobSnapshot.getString("title")
+                                                                    ?: title
+                                                            if (!employerEmail.isNullOrEmpty()) {
+                                                                // Find employer by email
+                                                                db.collection("users")
+                                                                    .whereEqualTo(
+                                                                        "email",
+                                                                        employerEmail
+                                                                    )
+                                                                    .get()
+                                                                    .addOnSuccessListener { querySnapshot ->
+                                                                        for (userDoc in querySnapshot.documents) {
+                                                                            val userId = userDoc.id
+                                                                            val notification =
+                                                                                mapOf(
+                                                                                    "title" to "New Application Received",
+                                                                                    "message" to "You received a new application for \"$jobTitle\"",
+                                                                                    "type" to "application_new",
+                                                                                    "timestamp" to System.currentTimeMillis(),
+                                                                                    "read" to false
+                                                                                )
+                                                                            db.collection("users")
+                                                                                .document(userId)
+                                                                                .collection("notifications")
+                                                                                .add(notification)
+                                                                        }
+                                                                    }
+                                                                    .addOnFailureListener { e ->
+                                                                        Toast.makeText(
+                                                                            requireContext(),
+                                                                            "Failed to notify employer: ${e.message}",
+                                                                            Toast.LENGTH_SHORT
+                                                                        ).show()
+                                                                    }
+                                                            }
+                                                        }
+                                                        .addOnFailureListener {
+                                                            Toast.makeText(
+                                                                requireContext(),
+                                                                "Failed to fetch job data for notification",
+                                                                Toast.LENGTH_SHORT
+                                                            ).show()
+                                                        }
+                                                }
+
+                                                // Refresh UI
                                                 onViewCreated(view, savedInstanceState)
-                                            }.addOnFailureListener {
-                                                Toast.makeText(
-                                                    requireContext(),
-                                                    "Failed to $action: ${it.message}",
-                                                    Toast.LENGTH_SHORT
-                                                ).show()
                                             }
+                                                .addOnFailureListener {
+                                                    Toast.makeText(
+                                                        requireContext(),
+                                                        "Failed to $action: ${it.message}",
+                                                        Toast.LENGTH_SHORT
+                                                    ).show()
+                                                }
                                         }
                                         .setNegativeButton("Cancel", null)
                                         .show()

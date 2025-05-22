@@ -115,7 +115,6 @@ class ApplicantsAdapter(
         context.startActivity(intent)
     }
 
-
     private fun showConfirmationDialog(
         context: android.content.Context,
         action: String,
